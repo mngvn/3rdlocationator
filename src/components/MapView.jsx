@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Pane } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -152,18 +152,18 @@ export default function MapView({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      {radarUrl && (
-        <TileLayer
-          key={radarUrl}
-          url={radarUrl}
-          opacity={0.85}
-          zIndex={400}
-          maxNativeZoom={10}
-          maxZoom={20}
-          className="radar-tile-layer"
-          attribution='Radar &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
-        />
-      )}
+      <Pane name="radar" style={{ zIndex: 400 }}>
+        {radarUrl && (
+          <TileLayer
+            key={radarUrl}
+            url={radarUrl}
+            opacity={0.9}
+            maxNativeZoom={10}
+            maxZoom={20}
+            attribution='Radar &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
+          />
+        )}
+      </Pane>
       {homeLocation && (
         <>
           <Marker position={[homeLocation.lat, homeLocation.lon]} icon={homeIcon()}>

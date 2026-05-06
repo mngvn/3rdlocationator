@@ -139,6 +139,7 @@ export default function App() {
   }, [radarOn]);
 
   const radarTile = radarFrame ? radarTileUrl(radarFrame.host, radarFrame.path) : null;
+  const radarAgeMin = radarFrame ? Math.max(0, Math.round((Date.now() / 1000 - radarFrame.time) / 60)) : null;
 
   const visibleEventCenters = useMemo(() => {
     if (!eventsOn) return [];
@@ -277,7 +278,7 @@ export default function App() {
               onClick={() => setRadarOn(!radarOn)}
               title={radarOn ? "Hide weather radar" : "Show live precipitation radar"}
             >
-              🌧️ Radar
+              🌧️ Radar{radarOn && radarAgeMin != null ? ` · ${radarAgeMin}m ago` : ""}
             </button>
             <button
               className={`events-toggle ${eventsOn ? "active" : ""}`}
