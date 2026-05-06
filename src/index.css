@@ -812,6 +812,15 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   white-space: nowrap;
   letter-spacing: 0.02em;
 }
+.zoom-hint.radar-hint {
+  top: auto;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(80,160,232,0.18);
+  border-color: rgba(80,160,232,0.4);
+  color: #7ab8ff;
+}
 
 /* ── Empty State / Error ────────────────────────────── */
 .empty-state {

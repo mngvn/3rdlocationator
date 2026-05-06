@@ -78,6 +78,21 @@ function MapMoveHandler({ onMapMove }) {
   return null;
 }
 
+function ZoomLock({ lockedZoom }) {
+  const map = useMap();
+  useEffect(() => {
+    if (lockedZoom != null) {
+      map.setMinZoom(lockedZoom);
+      map.setMaxZoom(lockedZoom);
+      if (map.getZoom() !== lockedZoom) map.setZoom(lockedZoom);
+    } else {
+      map.setMinZoom(0);
+      map.setMaxZoom(19);
+    }
+  }, [lockedZoom, map]);
+  return null;
+}
+
 function FlyToLocation({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
@@ -96,6 +111,7 @@ export default function MapView({
   onMapMove,
   eventCenters = [],
   radarUrl = null,
+  lockedZoom = null,
 }) {
   const defaultCenter = mapCenter || (homeLocation ? [homeLocation.lat, homeLocation.lon] : [39.5, -98.35]);
   const defaultZoom = mapZoom || (homeLocation ? 14 : 4);
@@ -178,6 +194,7 @@ export default function MapView({
         </Marker>
       ))}
       <FlyToLocation center={mapCenter} zoom={mapZoom} />
+      <ZoomLock lockedZoom={lockedZoom} />
       {onMapMove && <MapMoveHandler onMapMove={onMapMove} />}
     </MapContainer>
   );
