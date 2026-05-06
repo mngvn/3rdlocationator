@@ -115,6 +115,18 @@ export default function App() {
     return () => { cancelled = true; };
   }, [homeLocation?.lat, homeLocation?.lon]);
 
+  // When radar is toggled on while zoomed in tighter than the radar tiles
+  // support (>10), pull the map back to a level where coverage is sharp.
+  useEffect(() => {
+    if (!radarOn) return;
+    if (currentZoom > 10 && currentBounds) {
+      const centerLat = (currentBounds.south + currentBounds.north) / 2;
+      const centerLon = (currentBounds.west + currentBounds.east) / 2;
+      setMapTarget({ center: [centerLat, centerLon], zoom: 9 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radarOn]);
+
   // Load + refresh radar frames when toggled on (every 5 min)
   useEffect(() => {
     if (!radarOn) {

@@ -41,6 +41,13 @@ body {
 
 .leaflet-tile-pane { filter: invert(0.92) hue-rotate(180deg) brightness(0.95) contrast(0.85) saturate(0.7); }
 
+/* Counteract the dark-mode tile filter on the radar layer so red/yellow stay
+   vivid, then crank saturation + contrast so storms really pop. */
+.radar-tile-layer {
+  filter: invert(1) hue-rotate(180deg) saturate(1.6) contrast(1.25) brightness(1.05);
+  mix-blend-mode: screen;
+}
+
 .leaflet-control-attribution {
   background: rgba(15, 15, 19, 0.75) !important;
   color: var(--text2) !important;

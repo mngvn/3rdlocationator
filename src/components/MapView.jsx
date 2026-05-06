@@ -140,8 +140,11 @@ export default function MapView({
         <TileLayer
           key={radarUrl}
           url={radarUrl}
-          opacity={0.6}
+          opacity={0.85}
           zIndex={400}
+          maxNativeZoom={10}
+          maxZoom={20}
+          className="radar-tile-layer"
           attribution='Radar &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
         />
       )}
