@@ -51,12 +51,13 @@ export async function fetchRadarFrames() {
 }
 
 // Build a Leaflet tile URL template for a given RainViewer frame.
-// color=4 is "The Weather Channel" palette — green for light, yellow for
-// moderate, bright red/magenta for heavy storms. smooth=1, snow=1.
-// Note: free RainViewer tiles only exist up to native zoom 10; pair with
-// `maxNativeZoom={10}` on the TileLayer so Leaflet upscales for closer zooms.
-export const RADAR_MAX_NATIVE_ZOOM = 10;
+// size=256 (Leaflet default — avoids tile-coord confusion), color=4 is the
+// "Weather Channel" palette (green→yellow→red→magenta for storm intensity),
+// smooth=1, snow=1.
+// Free RainViewer tiles reliably go up to native zoom ~8. Pair with
+// `maxNativeZoom={8}` so Leaflet upscales rather than requesting z>8.
+export const RADAR_MAX_NATIVE_ZOOM = 8;
 
 export function radarTileUrl(host, framePath) {
-  return `${host}${framePath}/512/{z}/{x}/{y}/4/1_1.png`;
+  return `${host}${framePath}/256/{z}/{x}/{y}/4/1_1.png`;
 }

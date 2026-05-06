@@ -266,7 +266,7 @@ export default function App() {
         onMapMove={handleMapMove}
         eventCenters={visibleEventCenters}
         radarUrl={radarTile}
-        lockedZoom={radarOn ? 9 : null}
+        lockedZoom={radarOn ? 8 : null}
       />
 
       <header className="floating-header">

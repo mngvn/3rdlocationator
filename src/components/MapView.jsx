@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Pane } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -84,13 +84,39 @@ function ZoomLock({ lockedZoom }) {
     if (lockedZoom != null) {
       map.setMinZoom(lockedZoom);
       map.setMaxZoom(lockedZoom);
-      if (map.getZoom() !== lockedZoom) map.setZoom(lockedZoom);
+      if (map.getZoom() !== lockedZoom) map.setZoom(lockedZoom, { animate: false });
     } else {
       map.setMinZoom(0);
       map.setMaxZoom(19);
     }
   }, [lockedZoom, map]);
   return null;
+}
+
+// Only render radar tiles once the map is actually at a supported zoom.
+// Prevents brief "Zoom level not supported" placeholders that RainViewer
+// returns for tiles requested above their native max while ZoomLock is still
+// snapping the view down.
+function RadarLayer({ url }) {
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+  useEffect(() => {
+    function onZoomEnd() { setZoom(map.getZoom()); }
+    map.on("zoomend", onZoomEnd);
+    return () => { map.off("zoomend", onZoomEnd); };
+  }, [map]);
+  if (!url || zoom > 8) return null;
+  return (
+    <TileLayer
+      key={url}
+      url={url}
+      opacity={0.9}
+      tileSize={256}
+      maxNativeZoom={8}
+      maxZoom={20}
+      attribution='Radar &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
+    />
+  );
 }
 
 function FlyToLocation({ center, zoom }) {
@@ -153,16 +179,7 @@ export default function MapView({
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       <Pane name="radar" style={{ zIndex: 400 }}>
-        {radarUrl && (
-          <TileLayer
-            key={radarUrl}
-            url={radarUrl}
-            opacity={0.9}
-            maxNativeZoom={10}
-            maxZoom={20}
-            attribution='Radar &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
-          />
-        )}
+        <RadarLayer url={radarUrl} />
       </Pane>
       {homeLocation && (
         <>
