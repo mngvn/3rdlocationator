@@ -2,11 +2,12 @@ import { useState } from "react";
 import { geocodeAddress } from "../utils/overpass";
 
 const TYPE_OPTIONS = [
-  { value: "bar", label: "Bar" },
-  { value: "pub", label: "Pub" },
-  { value: "restaurant", label: "Restaurant" },
-  { value: "cafe", label: "Cafe" },
-  { value: "nightclub", label: "Nightclub" },
+  { value: "bar",          label: "Bar" },
+  { value: "pub",          label: "Pub" },
+  { value: "restaurant",   label: "Restaurant" },
+  { value: "cafe",         label: "Cafe" },
+  { value: "nightclub",    label: "Nightclub" },
+  { value: "liquor_store", label: "Liquor Store" },
 ];
 
 export default function CustomVenueModal({ defaultLocation, onSave, onClose }) {

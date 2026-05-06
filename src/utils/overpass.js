@@ -13,6 +13,23 @@ function buildQuery(lat, lon, radiusMeters) {
       node[amenity=restaurant](around:${radiusMeters},${lat},${lon});
       node[amenity=cafe](around:${radiusMeters},${lat},${lon});
       node[amenity=nightclub](around:${radiusMeters},${lat},${lon});
+      node[shop=alcohol](around:${radiusMeters},${lat},${lon});
+    );
+    out body;
+  `.trim();
+}
+
+function buildBboxQuery(south, west, north, east) {
+  const bbox = `${south},${west},${north},${east}`;
+  return `
+    [out:json][timeout:25];
+    (
+      node[amenity=bar](${bbox});
+      node[amenity=pub](${bbox});
+      node[amenity=restaurant](${bbox});
+      node[amenity=cafe](${bbox});
+      node[amenity=nightclub](${bbox});
+      node[shop=alcohol](${bbox});
     );
     out body;
   `.trim();
@@ -20,10 +37,11 @@ function buildQuery(lat, lon, radiusMeters) {
 
 function parseVenue(node) {
   const t = node.tags || {};
+  const type = t.amenity || (t.shop === "alcohol" ? "liquor_store" : null);
   return {
     id: String(node.id),
     name: t.name || "Unnamed",
-    type: t.amenity,
+    type,
     lat: node.lat,
     lon: node.lon,
     address: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ") || null,
@@ -43,6 +61,23 @@ async function tryEndpoint(url, query) {
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
+}
+
+export async function searchVenuesBbox(south, west, north, east) {
+  const query = buildBboxQuery(south, west, north, east);
+  let lastError = null;
+  for (const url of OVERPASS_ENDPOINTS) {
+    try {
+      const data = await tryEndpoint(url, query);
+      return data.elements
+        .filter((el) => el.tags?.name)
+        .map(parseVenue)
+        .sort((a, b) => a.name.localeCompare(b.name));
+    } catch (e) {
+      lastError = e;
+    }
+  }
+  throw lastError || new Error("All Overpass endpoints failed");
 }
 
 export async function searchVenuesNear(lat, lon, radiusMeters = 5000) {

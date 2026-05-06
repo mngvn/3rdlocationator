@@ -6,6 +6,7 @@ const TYPE_EMOJI = {
   restaurant: "🍽️",
   cafe: "☕",
   nightclub: "🎵",
+  liquor_store: "🥃",
 };
 
 function googleReviewsUrl(venue) {

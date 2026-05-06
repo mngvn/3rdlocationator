@@ -26,6 +26,8 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
   const [suggestions, setSuggestions] = useState([]);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [open, setOpen] = useState(false);
+  const inputRef = useRef(null);
+  const typedRef = useRef(""); // tracks committed (non-completion) typed text
   const debounceRef = useRef(null);
   const abortRef = useRef(null);
   const wrapperRef = useRef(null);
@@ -37,6 +39,27 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // Apply inline completion whenever suggestions update
+  useEffect(() => {
+    if (!suggestions.length || !open || !inputRef.current) return;
+    const typed = typedRef.current;
+    if (!typed.trim() || typed.length < 2) return;
+
+    const topLabel = shortLabel(suggestions[0]);
+    if (
+      topLabel.toLowerCase().startsWith(typed.toLowerCase()) &&
+      topLabel.length > typed.length
+    ) {
+      const completed = typed + topLabel.slice(typed.length);
+      setInput(completed);
+      requestAnimationFrame(() => {
+        if (inputRef.current) {
+          inputRef.current.setSelectionRange(typed.length, completed.length);
+        }
+      });
+    }
+  }, [suggestions, open]);
 
   function fetchSuggestions(q) {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -63,13 +86,25 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
 
   function handleInput(e) {
     const v = e.target.value;
+    const inputType = e.nativeEvent?.inputType || "";
+    const isDelete = inputType.startsWith("delete");
+
+    // Always track what the user has committed (typed or accepted completion)
+    typedRef.current = v;
     setInput(v);
-    setOpen(true);
-    fetchSuggestions(v);
+
+    if (isDelete) {
+      setSuggestions([]);
+      setOpen(false);
+    } else {
+      setOpen(true);
+      fetchSuggestions(v);
+    }
   }
 
   function selectSuggestion(s) {
     const label = shortLabel(s);
+    typedRef.current = label;
     setInput(label);
     setSuggestions([]);
     setOpen(false);
@@ -77,6 +112,19 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
   }
 
   function handleKeyDown(e) {
+    // Tab or ArrowRight at end of input accepts the inline completion
+    if ((e.key === "Tab" || e.key === "ArrowRight") && inputRef.current) {
+      const el = inputRef.current;
+      const atEnd = el.selectionEnd === input.length;
+      const hasCompletion = el.selectionStart < el.selectionEnd;
+      if (hasCompletion && atEnd) {
+        e.preventDefault();
+        typedRef.current = input;
+        el.setSelectionRange(input.length, input.length);
+        return;
+      }
+    }
+
     if (!open || !suggestions.length) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -88,6 +136,10 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
       e.preventDefault();
       selectSuggestion(suggestions[activeIdx]);
     } else if (e.key === "Escape") {
+      // Escape reverts to only the typed portion
+      const typed = typedRef.current;
+      setInput(typed);
+      setSuggestions([]);
       setOpen(false);
     }
   }
@@ -96,6 +148,7 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
     e.preventDefault();
     const q = input.trim();
     if (q) {
+      typedRef.current = q;
       setOpen(false);
       onSearch(q, radius);
     }
@@ -106,6 +159,7 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
       <div className="search-row">
         <div className="search-input-wrap">
           <input
+            ref={inputRef}
             type="text"
             placeholder="Enter a city or address"
             value={input}

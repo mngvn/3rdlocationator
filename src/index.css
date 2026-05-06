@@ -78,6 +78,28 @@ h1 {
   color: var(--accent);
 }
 
+/* ── Header Controls ────────────────────────────────── */
+.header-controls { display: flex; align-items: center; gap: 0.6rem; }
+
+.events-toggle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  color: var(--text2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.32rem 0.7rem;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.events-toggle:hover:not(.active) { color: var(--text); }
+.events-toggle.active {
+  background: rgba(232,64,128,0.18);
+  border-color: #e84080;
+  color: #ff7aaa;
+  box-shadow: 0 0 0 2px rgba(232,64,128,0.18);
+}
+
 /* ── Tabs ───────────────────────────────────────────── */
 .tabs { display: flex; gap: 0.25rem; }
 
@@ -126,7 +148,7 @@ h1 {
 
 .side-panel.open { transform: translateX(0); }
 
-.panel-section { padding: 0.85rem 0.95rem 1.5rem; }
+.panel-section { padding: 1.1rem 1rem 2rem; display: flex; flex-direction: column; gap: 1rem; }
 
 .panel-toggle {
   position: absolute;
@@ -268,49 +290,84 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 /* ── Filters ────────────────────────────────────────── */
 .filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.45rem;
-  margin-bottom: 0.7rem;
-  padding: 0.55rem 0.7rem;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.85rem 0.9rem;
   background: var(--surface2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: 10px;
 }
 
-.filters select { flex: 0 0 auto; width: auto; font-size: 0.78rem; padding: 0.3rem 0.5rem; }
-.filter-search { flex: 1 1 100%; min-width: 0; font-size: 0.82rem; padding: 0.35rem 0.55rem; }
+.filter-search { width: 100%; font-size: 0.85rem; }
+
+.filter-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text2);
+}
+
+.type-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.type-pill {
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  color: var(--text2);
+  font-size: 0.78rem;
+  padding: 0.28rem 0.65rem;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  white-space: nowrap;
+}
+.type-pill:hover:not(.active) { color: var(--text); border-color: var(--text2); background: none; }
+.type-pill.active {
+  background: rgba(232,160,32,0.15);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
 
 .filter-check {
   display: flex;
   align-items: center;
-  gap: 0.3rem;
-  font-size: 0.78rem;
+  gap: 0.4rem;
+  font-size: 0.82rem;
   color: var(--text);
   cursor: pointer;
-  white-space: nowrap;
 }
 
 .filter-check input[type="checkbox"] {
   accent-color: var(--accent);
-  width: 13px;
-  height: 13px;
+  width: 14px;
+  height: 14px;
   flex: none;
   padding: 0;
+}
+
+.filter-distance {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-top: 0.1rem;
+  border-top: 1px solid var(--border);
 }
 
 .filter-range {
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
-  font-size: 0.74rem;
+  gap: 0.2rem;
+  font-size: 0.76rem;
   color: var(--text2);
-  width: 100%;
 }
 
 .filter-range input[type="range"] {
   accent-color: var(--accent);
-  flex: none;
   width: 100%;
   padding: 0;
   border: none;
@@ -318,8 +375,8 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 
 /* ── Venue List ─────────────────────────────────────── */
-.result-count { font-size: 0.74rem; color: var(--text2); margin-bottom: 0.5rem; }
-.venue-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.result-count { font-size: 0.74rem; color: var(--text2); }
+.venue-list { display: flex; flex-direction: column; gap: 0.65rem; }
 
 /* ── Venue Card (compact) ───────────────────────────── */
 .venue-card {
@@ -628,6 +685,51 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .popup-fav { color: var(--accent) !important; font-weight: 700; }
 
+/* ── Add Venue FAB ──────────────────────────────────── */
+.add-venue-fab {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.5rem;
+  z-index: 1001;
+  background: var(--accent);
+  border: 2px solid rgba(255,255,255,0.18);
+  border-radius: 99px;
+  color: #000;
+  font-weight: 800;
+  font-size: 0.95rem;
+  padding: 0.75rem 1.4rem;
+  box-shadow: 0 0 0 4px rgba(232,160,32,0.22), 0 6px 24px rgba(0,0,0,0.55);
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.add-venue-fab:hover {
+  background: var(--accent2);
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 6px rgba(232,160,32,0.28), 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* ── Zoom Hint Overlay ──────────────────────────────── */
+.zoom-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 500;
+  background: rgba(15,15,19,0.55);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 99px;
+  color: rgba(232,232,240,0.55);
+  font-size: 0.82rem;
+  font-weight: 500;
+  padding: 0.5rem 1.1rem;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+}
+
 /* ── Empty State / Error ────────────────────────────── */
 .empty-state {
   text-align: center;
@@ -641,13 +743,58 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .error { color: var(--red); font-size: 0.82rem; margin-bottom: 0.55rem; }
 
+/* ── API Key Modal ──────────────────────────────────── */
+.apikey-info { font-size: 0.85rem; color: var(--text2); line-height: 1.5; }
+.apikey-steps {
+  font-size: 0.85rem;
+  color: var(--text);
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  line-height: 1.45;
+}
+.apikey-steps a { color: var(--accent); text-decoration: none; }
+.apikey-steps a:hover { text-decoration: underline; }
+.apikey-steps strong { color: var(--accent); font-weight: 700; }
+
 /* ── Custom Form ────────────────────────────────────── */
 .custom-form { display: flex; flex-direction: column; gap: 0.7rem; }
 .field { display: flex; flex-direction: column; gap: 0.25rem; }
 .field span { font-size: 0.74rem; color: var(--text2); font-weight: 600; }
 
 /* ── Map Markers ────────────────────────────────────── */
-.venue-marker, .home-marker { background: none !important; border: none !important; }
+.venue-marker, .home-marker, .event-marker { background: none !important; border: none !important; }
+
+.event-pin {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #ff5fa0, #b8306a);
+  border: 2px solid #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  box-shadow: 0 0 0 3px rgba(232,64,128,0.32), 0 2px 8px rgba(0,0,0,0.55);
+  cursor: pointer;
+  transition: transform 0.15s;
+}
+.event-pin:hover { transform: scale(1.18); }
+
+.event-popup .popup-type { color: #ff7aaa !important; }
+.event-popup .event-when {
+  color: var(--accent) !important;
+  font-weight: 600;
+}
+.event-popup .event-tickets {
+  display: inline-block;
+  margin-top: 0.4rem;
+  color: #ff7aaa;
+  border-color: #b8306a;
+}
+.event-popup .event-tickets:hover { color: #ff5fa0; border-color: #ff5fa0; }
+
 
 .marker-pin {
   border-radius: 50%;
@@ -722,6 +869,7 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   :root { --panel-w: 100vw; }
   .floating-header { width: calc(100vw - 1rem); padding: 0.65rem 0.85rem; top: 0.5rem; }
   .header-row { flex-direction: column; align-items: stretch; gap: 0.5rem; }
+  .header-controls { justify-content: space-between; }
   .search-row { flex-wrap: wrap; }
   .panel-toggle.open { left: calc(100vw - 24px); }
   .side-panel { padding-top: 11rem; }

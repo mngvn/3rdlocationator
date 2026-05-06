@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useLocalStorage } from "./hooks/useLocalStorage";
-import { searchVenuesNear, geocodeAddress } from "./utils/overpass";
+import { searchVenuesBbox, geocodeAddress } from "./utils/overpass";
+import { EVENT_CENTERS } from "./data/eventCenters";
 import { haversineDistance } from "./utils/distance";
 import { parseOsmHappyHours } from "./utils/parseHappyHours";
 import LocationSearch from "./components/LocationSearch";
@@ -11,7 +12,7 @@ import CustomVenueModal from "./components/CustomVenueModal";
 import NotesModal from "./components/NotesModal";
 import MapView from "./components/MapView";
 
-const DEFAULT_FILTERS = { search: "", type: "", happyHourOnly: false, walkingOnly: false, maxMiles: 1 };
+const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 1 };
 const TABS = ["Search", "Favorites"];
 
 export default function App() {
@@ -28,7 +29,12 @@ export default function App() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchError, setSearchError] = useState(null);
 
+  const [currentZoom, setCurrentZoom] = useState(4);
+  const [currentBounds, setCurrentBounds] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
+
+  // Events
+  const [eventsOn, setEventsOn] = useLocalStorage("bh_events_on", false);
   const [hhModal, setHhModal] = useState(null);
   const [notesModal, setNotesModal] = useState(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
@@ -39,14 +45,32 @@ export default function App() {
     setSearchError(null);
     try {
       const geo = await geocodeAddress(query);
-      const home = { label: geo.label, lat: geo.lat, lon: geo.lon };
-      setHomeLocation(home);
+      setHomeLocation({ label: geo.label, lat: geo.lat, lon: geo.lon });
       setMapTarget({ center: [geo.lat, geo.lon], zoom: zoomForRadius(radiusMeters) });
+      // Venue loading is driven by the map's moveend event after flyTo
+    } catch (e) {
+      setSearchError(e.message === "Address not found"
+        ? "Couldn't find that location. Try a more specific address or city."
+        : "Geocoding failed. Try again.");
+    } finally {
+      setSearchLoading(false);
+    }
+  }
 
-      const results = await searchVenuesNear(geo.lat, geo.lon, radiusMeters);
+  async function handleMapMove({ lat, lon, zoom, bounds }) {
+    setCurrentZoom(zoom);
+    setCurrentBounds(bounds);
+
+    if (zoom < 12) {
+      setSearchResults([]);
+      return;
+    }
+    setSearchLoading(true);
+    setSearchError(null);
+    try {
+      const results = await searchVenuesBbox(bounds.south, bounds.west, bounds.north, bounds.east);
       setSearchResults(results);
 
-      // Auto-import any happy_hours found on OSM venues
       const newHH = {};
       results.forEach((v) => {
         if (v.osmHappyHours && !happyHours[v.id]) {
@@ -56,22 +80,22 @@ export default function App() {
           }
         }
       });
-      if (Object.keys(newHH).length) {
-        setHappyHours((prev) => ({ ...newHH, ...prev }));
-      }
-
-      if (!results.length) {
-        setSearchError("No bars or restaurants found in this area. Try a wider radius or a different location.");
-      }
+      if (Object.keys(newHH).length) setHappyHours((prev) => ({ ...newHH, ...prev }));
     } catch (e) {
-      setSearchError(e.message === "Address not found"
-        ? "Couldn't find that location. Try a more specific address or city."
-        : "Search failed. The OSM service may be busy — try again in a moment.");
-      setSearchResults([]);
+      setSearchError("Couldn't load venues for this area. Try again.");
     } finally {
       setSearchLoading(false);
     }
   }
+
+  const visibleEventCenters = useMemo(() => {
+    if (!eventsOn) return [];
+    if (!currentBounds) return EVENT_CENTERS;
+    const { south, west, north, east } = currentBounds;
+    return EVENT_CENTERS.filter(
+      (e) => e.lat >= south && e.lat <= north && e.lon >= west && e.lon <= east
+    );
+  }, [eventsOn, currentBounds]);
 
   function toggleFavorite(venue) {
     setFavorites((prev) => {
@@ -124,7 +148,7 @@ export default function App() {
     const search = filters.search?.trim().toLowerCase();
     return venues.filter((v) => {
       if (search && !v.name.toLowerCase().includes(search)) return false;
-      if (filters.type && v.type !== filters.type) return false;
+      if (filters.types?.length && !filters.types.includes(v.type)) return false;
       if (filters.happyHourOnly) {
         const hh = getHappyHour(v.id);
         if (hh?.status !== "known" || !hh.entries.some((e) => e.days.includes(today))) return false;
@@ -164,6 +188,9 @@ export default function App() {
 
   return (
     <div className="app map-mode">
+      {currentZoom < 12 && !searchLoading && (
+        <div className="zoom-hint">🔍 Zoom in to load venues</div>
+      )}
       <MapView
         venues={mapVenues}
         favoriteIds={favoriteIds}
@@ -171,21 +198,32 @@ export default function App() {
         mapCenter={mapTarget?.center}
         mapZoom={mapTarget?.zoom}
         walkingRadius={walkingRadius}
+        onMapMove={handleMapMove}
+        eventCenters={visibleEventCenters}
       />
 
       <header className="floating-header">
         <div className="header-row">
           <h1>BarHunter</h1>
-          <nav className="tabs">
-            {TABS.map((t) => (
-              <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
-                {t}
-                {t === "Favorites" && favorites.length > 0 && (
-                  <span className="tab-badge">{favorites.length}</span>
-                )}
-              </button>
-            ))}
-          </nav>
+          <div className="header-controls">
+            <button
+              className={`events-toggle ${eventsOn ? "active" : ""}`}
+              onClick={() => setEventsOn(!eventsOn)}
+              title={eventsOn ? "Hide event venues" : "Show major event venues"}
+            >
+              🎟️ Events{eventsOn && visibleEventCenters.length > 0 ? ` · ${visibleEventCenters.length}` : ""}
+            </button>
+            <nav className="tabs">
+              {TABS.map((t) => (
+                <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
+                  {t}
+                  {t === "Favorites" && favorites.length > 0 && (
+                    <span className="tab-badge">{favorites.length}</span>
+                  )}
+                </button>
+              ))}
+            </nav>
+          </div>
         </div>
         <LocationSearch
           onSearch={handleSearch}
@@ -202,14 +240,15 @@ export default function App() {
         {panelOpen ? "◀" : "▶"}
       </button>
 
+      <button
+        className="add-venue-fab"
+        onClick={() => setCustomModalOpen(true)}
+        title="Add a custom venue"
+      >+ Add Venue</button>
+
       <aside className={`side-panel ${panelOpen ? "open" : ""}`}>
         {tab === "Search" && (
           <section className="panel-section">
-            <div className="panel-actions">
-              <button className="btn-secondary" onClick={() => setCustomModalOpen(true)}>
-                + Add Custom Venue
-              </button>
-            </div>
             {searchResults.length > 0 && (
               <Filters filters={filters} onChange={setFilters} hasHomeLocation={!!homeLocation} mode="search" />
             )}
@@ -220,8 +259,8 @@ export default function App() {
                 {osmHHCount > 0 ? ` · ${osmHHCount} HH found in OSM` : ""}
               </p>
             )}
-            {!searchError && !searchLoading && searchResults.length === 0 && (
-              <p className="muted">Search a city or address above to see bars and restaurants — or add your own.</p>
+            {!searchError && !searchLoading && searchResults.length === 0 && currentZoom >= 12 && (
+              <p className="muted">Search a city or address above, or pan the map to explore.</p>
             )}
             {searchLoading && <p className="muted">Searching nearby venues...</p>}
             <div className="venue-list">
@@ -254,18 +293,10 @@ export default function App() {
                   <button className="btn-primary" onClick={() => setTab("Search")}>
                     Find some bars
                   </button>
-                  <button onClick={() => setCustomModalOpen(true)}>
-                    + Add Custom Venue
-                  </button>
                 </div>
               </div>
             ) : (
               <>
-                <div className="panel-actions">
-                  <button className="btn-secondary" onClick={() => setCustomModalOpen(true)}>
-                    + Add Custom Venue
-                  </button>
-                </div>
                 <Filters filters={filters} onChange={setFilters} hasHomeLocation={!!homeLocation} mode="favorites" />
                 <p className="result-count">
                   {filteredFavorites.length} of {favorites.length} favorites

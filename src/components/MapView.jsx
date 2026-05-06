@@ -1,14 +1,15 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 const TYPE_STYLE = {
-  bar:        { color: "#6a6a8c", emoji: "🍺", label: "Bar" },
-  pub:        { color: "#6a6a8c", emoji: "🍻", label: "Pub" },
-  restaurant: { color: "#6a6a8c", emoji: "🍽️", label: "Restaurant" },
-  cafe:       { color: "#6a6a8c", emoji: "☕", label: "Cafe" },
-  nightclub:  { color: "#6a6a8c", emoji: "🎵", label: "Nightclub" },
+  bar:          { color: "#6a6a8c", emoji: "🍺", label: "Bar" },
+  pub:          { color: "#6a6a8c", emoji: "🍻", label: "Pub" },
+  restaurant:   { color: "#6a6a8c", emoji: "🍽️", label: "Restaurant" },
+  cafe:         { color: "#6a6a8c", emoji: "☕", label: "Cafe" },
+  nightclub:    { color: "#6a6a8c", emoji: "🎵", label: "Nightclub" },
+  liquor_store: { color: "#7a4a9a", emoji: "🥃", label: "Liquor Store" },
 };
 
 const FAVORITE_COLOR = "#e8a020";
@@ -36,6 +37,47 @@ function homeIcon() {
   });
 }
 
+function eventIcon() {
+  return L.divIcon({
+    className: "event-marker",
+    html: `<div class="event-pin">🎟️</div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 17],
+  });
+}
+
+function MapMoveHandler({ onMapMove }) {
+  const map = useMap();
+  const cbRef = useRef(onMapMove);
+  cbRef.current = onMapMove;
+
+  useEffect(() => {
+    const timer = { id: null };
+    function handleMoveEnd() {
+      clearTimeout(timer.id);
+      timer.id = setTimeout(() => {
+        const center = map.getCenter();
+        const bounds = map.getBounds();
+        cbRef.current({
+          lat: center.lat,
+          lon: center.lng,
+          zoom: map.getZoom(),
+          bounds: {
+            south: bounds.getSouth(),
+            west: bounds.getWest(),
+            north: bounds.getNorth(),
+            east: bounds.getEast(),
+          },
+        });
+      }, 800);
+    }
+    map.on("moveend", handleMoveEnd);
+    return () => { map.off("moveend", handleMoveEnd); clearTimeout(timer.id); };
+  }, [map]);
+
+  return null;
+}
+
 function FlyToLocation({ center, zoom }) {
   const map = useMap();
   useEffect(() => {
@@ -51,6 +93,8 @@ export default function MapView({
   mapCenter,
   mapZoom,
   walkingRadius,
+  onMapMove,
+  eventCenters = [],
 }) {
   const defaultCenter = mapCenter || (homeLocation ? [homeLocation.lat, homeLocation.lon] : [39.5, -98.35]);
   const defaultZoom = mapZoom || (homeLocation ? 14 : 4);
@@ -106,7 +150,22 @@ export default function MapView({
         </>
       )}
       {venueMarkers}
+      {eventCenters.map((ec) => (
+        <Marker key={`ec-${ec.id}`} position={[ec.lat, ec.lon]} icon={eventIcon()} zIndexOffset={500}>
+          <Popup>
+            <div className="map-popup event-popup">
+              <span className="popup-type">🎟️ {ec.type}</span>
+              <strong>{ec.name}</strong>
+              <p>{ec.city}</p>
+              <a className="link-btn event-tickets" href={ec.scheduleUrl} target="_blank" rel="noopener noreferrer">
+                📅 View Schedule
+              </a>
+            </div>
+          </Popup>
+        </Marker>
+      ))}
       <FlyToLocation center={mapCenter} zoom={mapZoom} />
+      {onMapMove && <MapMoveHandler onMapMove={onMapMove} />}
     </MapContainer>
   );
 }
