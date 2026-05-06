@@ -1,15 +1,17 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { searchVenuesBbox, geocodeAddress } from "./utils/overpass";
 import { EVENT_CENTERS } from "./data/eventCenters";
 import { haversineDistance } from "./utils/distance";
 import { parseOsmHappyHours } from "./utils/parseHappyHours";
+import { fetchWeather, fetchRadarFrames, radarTileUrl } from "./utils/weather";
 import LocationSearch from "./components/LocationSearch";
 import VenueCard from "./components/VenueCard";
 import Filters from "./components/Filters";
 import HappyHourModal from "./components/HappyHourModal";
 import CustomVenueModal from "./components/CustomVenueModal";
 import NotesModal from "./components/NotesModal";
+import WeatherWidget from "./components/WeatherWidget";
 import MapView from "./components/MapView";
 
 const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 1 };
@@ -35,6 +37,15 @@ export default function App() {
 
   // Events
   const [eventsOn, setEventsOn] = useLocalStorage("bh_events_on", false);
+
+  // Weather
+  const [weather, setWeather] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherError, setWeatherError] = useState(null);
+
+  // Radar
+  const [radarOn, setRadarOn] = useLocalStorage("bh_radar_on", false);
+  const [radarFrame, setRadarFrame] = useState(null);
   const [hhModal, setHhModal] = useState(null);
   const [notesModal, setNotesModal] = useState(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
@@ -87,6 +98,47 @@ export default function App() {
       setSearchLoading(false);
     }
   }
+
+  // Refetch weather whenever the user picks a new home location
+  useEffect(() => {
+    if (!homeLocation) {
+      setWeather(null);
+      return;
+    }
+    let cancelled = false;
+    setWeatherLoading(true);
+    setWeatherError(null);
+    fetchWeather(homeLocation.lat, homeLocation.lon)
+      .then((data) => { if (!cancelled) setWeather(data); })
+      .catch(() => { if (!cancelled) setWeatherError("Couldn't load weather"); })
+      .finally(() => { if (!cancelled) setWeatherLoading(false); });
+    return () => { cancelled = true; };
+  }, [homeLocation?.lat, homeLocation?.lon]);
+
+  // Load + refresh radar frames when toggled on (every 5 min)
+  useEffect(() => {
+    if (!radarOn) {
+      setRadarFrame(null);
+      return;
+    }
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await fetchRadarFrames();
+        if (cancelled) return;
+        const past = data?.radar?.past || [];
+        const latest = past[past.length - 1];
+        if (latest) setRadarFrame({ host: data.host, path: latest.path, time: latest.time });
+      } catch {
+        // silent — toggle stays on, just no overlay
+      }
+    }
+    load();
+    const id = setInterval(load, 5 * 60 * 1000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [radarOn]);
+
+  const radarTile = radarFrame ? radarTileUrl(radarFrame.host, radarFrame.path) : null;
 
   const visibleEventCenters = useMemo(() => {
     if (!eventsOn) return [];
@@ -191,6 +243,15 @@ export default function App() {
       {currentZoom < 12 && !searchLoading && (
         <div className="zoom-hint">🔍 Zoom in to load venues</div>
       )}
+
+      {(weather || weatherLoading) && (
+        <WeatherWidget
+          weather={weather}
+          label={homeLocation?.label}
+          loading={weatherLoading}
+          error={weatherError}
+        />
+      )}
       <MapView
         venues={mapVenues}
         favoriteIds={favoriteIds}
@@ -200,12 +261,20 @@ export default function App() {
         walkingRadius={walkingRadius}
         onMapMove={handleMapMove}
         eventCenters={visibleEventCenters}
+        radarUrl={radarTile}
       />
 
       <header className="floating-header">
         <div className="header-row">
           <h1>BarHunter</h1>
           <div className="header-controls">
+            <button
+              className={`radar-toggle ${radarOn ? "active" : ""}`}
+              onClick={() => setRadarOn(!radarOn)}
+              title={radarOn ? "Hide weather radar" : "Show live precipitation radar"}
+            >
+              🌧️ Radar
+            </button>
             <button
               className={`events-toggle ${eventsOn ? "active" : ""}`}
               onClick={() => setEventsOn(!eventsOn)}

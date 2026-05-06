@@ -100,6 +100,25 @@ h1 {
   box-shadow: 0 0 0 2px rgba(232,64,128,0.18);
 }
 
+.radar-toggle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  color: var(--text2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.32rem 0.7rem;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.radar-toggle:hover:not(.active) { color: var(--text); }
+.radar-toggle.active {
+  background: rgba(80,160,232,0.18);
+  border-color: #4a9be8;
+  color: #7ab8ff;
+  box-shadow: 0 0 0 2px rgba(80,160,232,0.18);
+}
+
 /* ── Tabs ───────────────────────────────────────────── */
 .tabs { display: flex; gap: 0.25rem; }
 
@@ -708,6 +727,63 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   background: var(--accent2);
   transform: translateY(-2px);
   box-shadow: 0 0 0 6px rgba(232,160,32,0.28), 0 10px 30px rgba(0,0,0,0.6);
+}
+
+/* ── Weather Widget ─────────────────────────────────── */
+.weather-widget {
+  position: absolute;
+  left: 1rem;
+  bottom: 1.25rem;
+  z-index: 600;
+  background: var(--surface);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.7rem 0.95rem;
+  box-shadow: 0 6px 22px rgba(0,0,0,0.45);
+  min-width: 180px;
+  max-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+}
+
+.weather-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+.weather-emoji { font-size: 2rem; line-height: 1; }
+.weather-temp-block { display: flex; flex-direction: column; gap: 0.05rem; }
+.weather-temp { font-size: 1.4rem; font-weight: 700; color: var(--text); line-height: 1; }
+.weather-cond { font-size: 0.78rem; color: var(--text2); }
+
+.weather-loc {
+  font-size: 0.74rem;
+  color: var(--text2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.weather-details {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  font-size: 0.74rem;
+  color: var(--text);
+  border-top: 1px solid var(--border);
+  padding-top: 0.4rem;
+}
+.weather-details span { white-space: nowrap; }
+
+.weather-loading, .weather-error { font-size: 0.78rem; color: var(--text2); }
+.weather-error { color: var(--red); }
+
+/* On mobile move it above the FAB so they don't collide */
+@media (max-width: 600px) {
+  .weather-widget { left: 0.75rem; bottom: 5rem; min-width: 0; max-width: calc(100vw - 1.5rem); }
 }
 
 /* ── Zoom Hint Overlay ──────────────────────────────── */

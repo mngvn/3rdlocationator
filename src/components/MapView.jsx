@@ -95,6 +95,7 @@ export default function MapView({
   walkingRadius,
   onMapMove,
   eventCenters = [],
+  radarUrl = null,
 }) {
   const defaultCenter = mapCenter || (homeLocation ? [homeLocation.lat, homeLocation.lon] : [39.5, -98.35]);
   const defaultZoom = mapZoom || (homeLocation ? 14 : 4);
@@ -135,6 +136,15 @@ export default function MapView({
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
+      {radarUrl && (
+        <TileLayer
+          key={radarUrl}
+          url={radarUrl}
+          opacity={0.6}
+          zIndex={400}
+          attribution='Radar &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
+        />
+      )}
       {homeLocation && (
         <>
           <Marker position={[homeLocation.lat, homeLocation.lon]} icon={homeIcon()}>
