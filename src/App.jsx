@@ -60,6 +60,7 @@ export default function App() {
   const [customModalLocation, setCustomModalLocation] = useState(null);
   const [clickedLocation, setClickedLocation] = useState(null);
   const [selectedVenueId, setSelectedVenueId] = useState(null);
+  const [hoveredRouteId, setHoveredRouteId] = useState(null);
   const [mapTarget, setMapTarget] = useState(null);
 
   // Cache of the last fetched OSM region: we deliberately fetch a wider bbox
@@ -357,6 +358,15 @@ export default function App() {
     return set;
   }, [venuesAlongRoute, savedRouteVenuesMap]);
 
+  // When the user hovers a route card, narrow the glow to JUST that route's
+  // venues. Otherwise glow every route-connected venue.
+  const effectiveGlowIds = useMemo(() => {
+    if (hoveredRouteId && savedRouteVenuesMap.has(hoveredRouteId)) {
+      return new Set(savedRouteVenuesMap.get(hoveredRouteId).map((v) => v.id));
+    }
+    return venueGlowIds;
+  }, [hoveredRouteId, savedRouteVenuesMap, venueGlowIds]);
+
   async function planRouteWithStart(start, destination) {
     setRouteLoading(true);
     setRouteError(null);
@@ -496,7 +506,8 @@ export default function App() {
         lockedZoom={radarOn ? 6 : null}
         activeRoute={activeRoute}
         savedRoutes={tab === "Routes" ? savedRoutesColored : []}
-        venueGlowIds={venueGlowIds}
+        venueGlowIds={effectiveGlowIds}
+        hoveredRouteId={hoveredRouteId}
         selectedVenueId={selectedVenueId}
         onMarkerClick={(v) => { setSelectedVenueId(v.id); flyToVenue(v); }}
         clickedLocation={clickedLocation}
@@ -764,7 +775,13 @@ export default function App() {
                     const date = new Date(r.savedAt);
                     const along = savedRouteVenuesMap.get(r.id) || [];
                     return (
-                      <div key={r.id} className="venue-card">
+                      <div
+                        key={r.id}
+                        className={`venue-card route-card ${hoveredRouteId === r.id ? "is-route-hovered" : ""}`}
+                        style={hoveredRouteId === r.id ? { borderColor: r._color, boxShadow: `0 0 0 2px ${r._color}55, 0 8px 24px rgba(0,0,0,0.45)` } : undefined}
+                        onMouseEnter={() => setHoveredRouteId(r.id)}
+                        onMouseLeave={() => setHoveredRouteId((prev) => prev === r.id ? null : prev)}
+                      >
                         <div className="card-top">
                           <div
                             className="card-title"

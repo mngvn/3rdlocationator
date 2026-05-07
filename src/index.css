@@ -1051,6 +1051,9 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 @keyframes throbberSpin { to { transform: rotate(360deg); } }
 
+.route-card { cursor: default; transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s; }
+.route-card.is-route-hovered { transform: translateY(-1px); }
+
 /* Color swatch shown next to each saved route name in the Routes tab */
 .route-swatch {
   display: inline-block;

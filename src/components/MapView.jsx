@@ -251,6 +251,7 @@ export default function MapView({
   activeRoute = null,
   savedRoutes = [],
   venueGlowIds = null,
+  hoveredRouteId = null,
   selectedVenueId = null,
   onMarkerClick = null,
   pickingStart = null,
@@ -319,14 +320,24 @@ export default function MapView({
           )}
         </>
       )}
-      {/* Saved routes (shown when on Routes tab) — each one a distinct color */}
-      {savedRoutes.map((r) => (
-        <Polyline
-          key={`saved-${r.id}`}
-          positions={r.geometry.coordinates.map(([lon, lat]) => [lat, lon])}
-          pathOptions={{ color: r._color || "#e8a020", weight: 4, opacity: 0.85, lineCap: "round" }}
-        />
-      ))}
+      {/* Saved routes — distinct color each. When a route card is hovered,
+          emphasize that one (thicker, full opacity) and dim the rest. */}
+      {savedRoutes.map((r) => {
+        const dimmed = hoveredRouteId && hoveredRouteId !== r.id;
+        const emphasized = hoveredRouteId === r.id;
+        return (
+          <Polyline
+            key={`saved-${r.id}`}
+            positions={r.geometry.coordinates.map(([lon, lat]) => [lat, lon])}
+            pathOptions={{
+              color: r._color || "#e8a020",
+              weight: emphasized ? 6 : 4,
+              opacity: dimmed ? 0.25 : 0.95,
+              lineCap: "round",
+            }}
+          />
+        );
+      })}
       {/* Active route — solid bright amber, with start + end dots */}
       {activeRoute?.route?.geometry && (
         <>
