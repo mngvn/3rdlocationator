@@ -49,6 +49,7 @@ export default function VenueCard({
   onEditNotes,
   onSetRating,
   onCardClick,
+  onDelete,
 }) {
   const distance = homeLocation
     ? haversineDistance(homeLocation.lat, homeLocation.lon, venue.lat, venue.lon)
@@ -134,6 +135,13 @@ export default function VenueCard({
             title="Venue website"
             onClick={(e) => e.stopPropagation()}
           >🌐 Site</a>
+        )}
+        {onDelete && (
+          <button
+            className="link-btn delete-btn"
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            title="Delete this venue"
+          >🗑️ Delete</button>
         )}
       </div>
     </div>

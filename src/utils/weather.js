@@ -46,18 +46,20 @@ export async function fetchWeather(lat, lon) {
 
 export async function fetchRadarFrames() {
   const res = await fetch("https://api.rainviewer.com/public/weather-maps.json");
-  if (!res.ok) throw new Error("Radar fetch failed");
-  return res.json();
+  if (!res.ok) throw new Error(`Radar API HTTP ${res.status}`);
+  const data = await res.json();
+  console.log("[Radar] API response", { host: data.host, pastFrames: data.radar?.past?.length });
+  return data;
 }
 
 // Build a Leaflet tile URL template for a given RainViewer frame.
-// size=256 (Leaflet default — avoids tile-coord confusion), color=4 is the
-// "Weather Channel" palette (green→yellow→red→magenta for storm intensity),
-// smooth=1, snow=1.
-// Free RainViewer tiles reliably go up to native zoom ~8. Pair with
-// `maxNativeZoom={8}` so Leaflet upscales rather than requesting z>8.
+// Color 1 is "Original" — RainViewer's most universally tested scheme,
+// rainbow gradient with red for heavy precipitation.
+// Free RainViewer tiles reliably exist up to native zoom ~8 globally.
 export const RADAR_MAX_NATIVE_ZOOM = 8;
 
 export function radarTileUrl(host, framePath) {
-  return `${host}${framePath}/256/{z}/{x}/{y}/4/1_1.png`;
+  const url = `${host}${framePath}/256/{z}/{x}/{y}/1/1_1.png`;
+  console.log("[Radar] Tile URL template", url);
+  return url;
 }

@@ -15,13 +15,14 @@ import WeatherWidget from "./components/WeatherWidget";
 import MapView from "./components/MapView";
 
 const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 1 };
-const TABS = ["Search", "Favorites"];
+const TABS = ["Search", "Favorites", "Mine"];
 
 export default function App() {
   const [tab, setTab] = useState("Search");
   const [panelOpen, setPanelOpen] = useState(true);
   // bh_portfolio key kept for backwards compat with existing data; semantically these are favorites now.
   const [favorites, setFavorites] = useLocalStorage("bh_portfolio", []);
+  const [userVenues, setUserVenues] = useLocalStorage("bh_user_venues", []);
   const [happyHours, setHappyHours] = useLocalStorage("bh_happyhours", {});
   const [ratings, setRatings] = useLocalStorage("bh_ratings", {});
   const [notes, setNotes] = useLocalStorage("bh_notes", {});
@@ -49,6 +50,8 @@ export default function App() {
   const [hhModal, setHhModal] = useState(null);
   const [notesModal, setNotesModal] = useState(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
+  const [customModalLocation, setCustomModalLocation] = useState(null);
+  const [clickedLocation, setClickedLocation] = useState(null);
   const [mapTarget, setMapTarget] = useState(null);
 
   async function handleSearch(query, radiusMeters) {
@@ -150,6 +153,25 @@ export default function App() {
     );
   }, [eventsOn, currentBounds]);
 
+  function saveUserVenue(venue) {
+    // Persist to user-venues list (independent of favorites)
+    setUserVenues((prev) => [...prev.filter((v) => v.id !== venue.id), venue]);
+    // Default to favorited
+    setFavorites((prev) => prev.find((v) => v.id === venue.id) ? prev : [...prev, venue]);
+    setMapTarget({ center: [venue.lat, venue.lon], zoom: 16 });
+    // Immediately prompt for happy hours
+    setHhModal({ venue });
+  }
+
+  function deleteUserVenue(id) {
+    if (!window.confirm("Delete this venue? This cannot be undone.")) return;
+    setUserVenues((prev) => prev.filter((v) => v.id !== id));
+    setFavorites((prev) => prev.filter((v) => v.id !== id));
+    setRatings((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setNotes((prev) => { const next = { ...prev }; delete next[id]; return next; });
+    setHappyHours((prev) => { const next = { ...prev }; delete next[id]; return next; });
+  }
+
   function toggleFavorite(venue) {
     setFavorites((prev) => {
       const exists = prev.find((v) => v.id === venue.id);
@@ -216,20 +238,39 @@ export default function App() {
 
   const favoriteIds = useMemo(() => new Set(favorites.map((v) => v.id)), [favorites]);
 
-  const filteredFavorites = applyFilters(favorites);
-  const filteredSearch = applyFilters(searchResults);
+  // User venues that fall within the current map view, so they behave like
+  // any other location: only visible when you're looking at their area.
+  const userVenuesInView = useMemo(() => {
+    if (!currentBounds) return [];
+    const { south, west, north, east } = currentBounds;
+    return userVenues.filter(
+      (v) => v.lat >= south && v.lat <= north && v.lon >= west && v.lon <= east
+    );
+  }, [userVenues, currentBounds]);
 
-  // Map shows: search results + favorites merged (favorites always render in case they're outside the search radius)
+  const filteredFavorites = applyFilters(favorites);
+  // Merge OSM search results with any user-added venues in the current
+  // viewport — they're indistinguishable from "real" results for filtering.
+  const combinedSearch = useMemo(() => {
+    const merged = new Map();
+    searchResults.forEach((v) => merged.set(v.id, v));
+    userVenuesInView.forEach((v) => merged.set(v.id, v));
+    return Array.from(merged.values());
+  }, [searchResults, userVenuesInView]);
+  const filteredSearch = applyFilters(combinedSearch);
+
+  // Map shows only what's relevant to the current tab — no permanent pins.
   const mapVenues = useMemo(() => {
     if (tab === "Search") {
       const merged = new Map();
       filteredSearch.forEach((v) => merged.set(v.id, v));
-      // Always include favorites that match filters
+      // Layer favorites in too so they remain visible outside the search radius
       filteredFavorites.forEach((v) => merged.set(v.id, v));
       return Array.from(merged.values());
     }
+    if (tab === "Mine") return userVenues;
     return filteredFavorites;
-  }, [tab, filteredSearch, filteredFavorites]);
+  }, [tab, filteredSearch, filteredFavorites, userVenues]);
 
   const walkingRadius = filters.walkingOnly && homeLocation ? filters.maxMiles : null;
 
@@ -242,10 +283,13 @@ export default function App() {
   return (
     <div className="app map-mode">
       {currentZoom < 12 && !searchLoading && !radarOn && (
-        <div className="zoom-hint">🔍 Zoom in to load venues</div>
+        <div className="zoom-hint zoom-hint-large">🔍 Zoom in to load venues</div>
       )}
       {radarOn && (
         <div className="zoom-hint radar-hint">🌧️ Zoom locked while radar is on</div>
+      )}
+      {searchLoading && (
+        <div className="map-loading">⏳ Searching nearby venues…</div>
       )}
 
       {(weather || weatherLoading) && (
@@ -266,12 +310,20 @@ export default function App() {
         onMapMove={handleMapMove}
         eventCenters={visibleEventCenters}
         radarUrl={radarTile}
-        lockedZoom={radarOn ? 8 : null}
+        lockedZoom={radarOn ? 6 : null}
+        clickedLocation={clickedLocation}
+        onMapClick={setClickedLocation}
+        onAddAtClick={(loc) => {
+          setCustomModalLocation({ lat: loc.lat, lon: loc.lon, label: null });
+          setCustomModalOpen(true);
+          setClickedLocation(null);
+        }}
+        onDismissClick={() => setClickedLocation(null)}
       />
 
       <header className="floating-header">
         <div className="header-row">
-          <h1>BarHunter</h1>
+          <h1>3rdlocationator</h1>
           <div className="header-controls">
             <button
               className={`radar-toggle ${radarOn ? "active" : ""}`}
@@ -293,6 +345,9 @@ export default function App() {
                   {t}
                   {t === "Favorites" && favorites.length > 0 && (
                     <span className="tab-badge">{favorites.length}</span>
+                  )}
+                  {t === "Mine" && userVenues.length > 0 && (
+                    <span className="tab-badge">{userVenues.length}</span>
                   )}
                 </button>
               ))}
@@ -316,7 +371,7 @@ export default function App() {
 
       <button
         className="add-venue-fab"
-        onClick={() => setCustomModalOpen(true)}
+        onClick={() => { setCustomModalLocation(null); setCustomModalOpen(true); }}
         title="Add a custom venue"
       >+ Add Venue</button>
 
@@ -336,7 +391,6 @@ export default function App() {
             {!searchError && !searchLoading && searchResults.length === 0 && currentZoom >= 12 && (
               <p className="muted">Search a city or address above, or pan the map to explore.</p>
             )}
-            {searchLoading && <p className="muted">Searching nearby venues...</p>}
             <div className="venue-list">
               {filteredSearch.map((v) => (
                 <VenueCard
@@ -400,6 +454,47 @@ export default function App() {
             )}
           </section>
         )}
+
+        {tab === "Mine" && (
+          <section className="panel-section">
+            {userVenues.length === 0 ? (
+              <div className="empty-state">
+                <p>No custom venues yet.</p>
+                <p className="muted">
+                  Hit <strong>+ Add Venue</strong> or <strong>left-click anywhere on the map</strong> to add one.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="result-count">
+                  {userVenues.length} venue{userVenues.length !== 1 ? "s" : ""} you've added
+                </p>
+                <div className="venue-list">
+                  {userVenues
+                    .slice()
+                    .sort((a, b) => a.name.localeCompare(b.name))
+                    .map((v) => (
+                      <VenueCard
+                        key={v.id}
+                        venue={v}
+                        isFavorite={favoriteIds.has(v.id)}
+                        happyHour={getHappyHour(v.id)}
+                        rating={ratings[v.id] || 0}
+                        notes={notes[v.id] || ""}
+                        homeLocation={homeLocation}
+                        onToggleFavorite={toggleFavorite}
+                        onEditHappyHour={(venue) => setHhModal({ venue })}
+                        onEditNotes={(venue) => setNotesModal({ venue })}
+                        onSetRating={setRating}
+                        onCardClick={flyToVenue}
+                        onDelete={() => deleteUserVenue(v.id)}
+                      />
+                    ))}
+                </div>
+              </>
+            )}
+          </section>
+        )}
       </aside>
 
       {hhModal && (
@@ -422,13 +517,9 @@ export default function App() {
 
       {customModalOpen && (
         <CustomVenueModal
-          defaultLocation={homeLocation}
-          onSave={(venue) => {
-            toggleFavorite(venue);
-            setMapTarget({ center: [venue.lat, venue.lon], zoom: 16 });
-            setTab("Favorites");
-          }}
-          onClose={() => setCustomModalOpen(false)}
+          defaultLocation={customModalLocation || homeLocation}
+          onSave={(venue) => { saveUserVenue(venue); setTab("Mine"); }}
+          onClose={() => { setCustomModalOpen(false); setCustomModalLocation(null); }}
         />
       )}
     </div>

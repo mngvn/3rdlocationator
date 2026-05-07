@@ -4,27 +4,33 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
 const TYPE_STYLE = {
-  bar:          { color: "#6a6a8c", emoji: "🍺", label: "Bar" },
-  pub:          { color: "#6a6a8c", emoji: "🍻", label: "Pub" },
-  restaurant:   { color: "#6a6a8c", emoji: "🍽️", label: "Restaurant" },
-  cafe:         { color: "#6a6a8c", emoji: "☕", label: "Cafe" },
-  nightclub:    { color: "#6a6a8c", emoji: "🎵", label: "Nightclub" },
-  liquor_store: { color: "#7a4a9a", emoji: "🥃", label: "Liquor Store" },
+  bar:          { color: "#d04040", emoji: "🍺", label: "Bar" },
+  pub:          { color: "#c47d10", emoji: "🍻", label: "Pub" },
+  restaurant:   { color: "#2ea84a", emoji: "🍽️", label: "Restaurant" },
+  cafe:         { color: "#7e5b3e", emoji: "☕", label: "Cafe" },
+  nightclub:    { color: "#5e2a87", emoji: "🎵", label: "Nightclub" },
+  liquor_store: { color: "#9560b8", emoji: "🥃", label: "Liquor Store" },
 };
-
-const FAVORITE_COLOR = "#e8a020";
 
 function makeIcon(type, isFavorite, isCustom) {
   const style = TYPE_STYLE[type] || TYPE_STYLE.bar;
-  const bg = isFavorite ? FAVORITE_COLOR : style.color;
-  const size = isFavorite ? 36 : 28;
-  const ring = isFavorite ? `box-shadow: 0 0 0 3px rgba(232,160,32,0.4), 0 2px 6px rgba(0,0,0,0.5);` : `box-shadow: 0 2px 4px rgba(0,0,0,0.5);`;
+  const headSize = isFavorite ? 34 : 28;
+  const totalH = isFavorite ? 48 : 40;
+  const favClass = isFavorite ? "is-fav" : "";
   const customBadge = isCustom ? `<div class="custom-badge">★</div>` : "";
   return L.divIcon({
-    className: `venue-marker ${isFavorite ? "is-fav" : ""}`,
-    html: `<div class="marker-pin" style="background:${bg};width:${size}px;height:${size}px;${ring}">${style.emoji}${customBadge}</div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    className: `venue-marker ${favClass}`,
+    html: `
+      <div class="pin-wrap" style="width:${headSize}px;height:${totalH}px">
+        <div class="pin-head" style="background:${style.color};width:${headSize}px;height:${headSize}px">
+          <span class="pin-emoji">${style.emoji}</span>
+        </div>
+        ${customBadge}
+      </div>
+    `,
+    iconSize: [headSize, totalH],
+    iconAnchor: [headSize / 2, totalH], // anchor at the tip of the pin
+    popupAnchor: [0, -totalH + 8],
   });
 }
 
@@ -34,6 +40,15 @@ function homeIcon() {
     html: `<div class="home-pin">🏠</div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 18],
+  });
+}
+
+function clickPromptIcon() {
+  return L.divIcon({
+    className: "click-marker",
+    html: `<div class="click-pin"></div>`,
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
   });
 }
 
@@ -82,9 +97,12 @@ function ZoomLock({ lockedZoom }) {
   const map = useMap();
   useEffect(() => {
     if (lockedZoom != null) {
+      // Snap the view first, THEN clamp the bounds, so we don't briefly
+      // sit at a zoom outside the new [min, max] range.
+      map.setView(map.getCenter(), lockedZoom, { animate: false });
       map.setMinZoom(lockedZoom);
       map.setMaxZoom(lockedZoom);
-      if (map.getZoom() !== lockedZoom) map.setZoom(lockedZoom, { animate: false });
+      console.log("[Radar] Zoom locked to", lockedZoom, "actual:", map.getZoom());
     } else {
       map.setMinZoom(0);
       map.setMaxZoom(19);
@@ -101,11 +119,19 @@ function RadarLayer({ url }) {
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
   useEffect(() => {
-    function onZoomEnd() { setZoom(map.getZoom()); }
+    function onZoomEnd() {
+      const z = map.getZoom();
+      setZoom(z);
+      console.log("[Radar] Map zoom is now", z);
+    }
     map.on("zoomend", onZoomEnd);
     return () => { map.off("zoomend", onZoomEnd); };
   }, [map]);
-  if (!url || zoom > 8) return null;
+  if (!url || zoom > 8) {
+    if (url) console.log("[Radar] Holding off — zoom", zoom, "not yet ≤ 8");
+    return null;
+  }
+  console.log("[Radar] Mounting tile layer at zoom", zoom);
   return (
     <TileLayer
       key={url}
@@ -115,7 +141,50 @@ function RadarLayer({ url }) {
       maxNativeZoom={8}
       maxZoom={20}
       attribution='Radar &copy; <a href="https://www.rainviewer.com/">RainViewer</a>'
+      eventHandlers={{
+        tileerror: (e) => console.warn("[Radar] tile error", e?.tile?.src),
+        tileload: (e) => { /* successful load */ },
+      }}
     />
+  );
+}
+
+function MapClickHandler({ onClick }) {
+  const map = useMap();
+  const cbRef = useRef(onClick);
+  cbRef.current = onClick;
+  useEffect(() => {
+    function handler(e) {
+      cbRef.current?.({ lat: e.latlng.lat, lon: e.latlng.lng });
+    }
+    map.on("click", handler);
+    return () => { map.off("click", handler); };
+  }, [map]);
+  return null;
+}
+
+function ClickPrompt({ location, onAdd, onDismiss }) {
+  const markerRef = useRef(null);
+  useEffect(() => {
+    if (markerRef.current) markerRef.current.openPopup();
+  }, [location?.lat, location?.lon]);
+  if (!location) return null;
+  return (
+    <Marker
+      ref={markerRef}
+      position={[location.lat, location.lon]}
+      icon={clickPromptIcon()}
+      zIndexOffset={2000}
+      eventHandlers={{ popupclose: () => onDismiss?.() }}
+    >
+      <Popup closeButton={false} autoPan={true}>
+        <div className="map-popup click-prompt">
+          <strong>Add a venue here?</strong>
+          <p className="click-prompt-coord">{location.lat.toFixed(5)}, {location.lon.toFixed(5)}</p>
+          <button className="btn-primary" onClick={onAdd}>+ Add Venue Here</button>
+        </div>
+      </Popup>
+    </Marker>
   );
 }
 
@@ -138,6 +207,10 @@ export default function MapView({
   eventCenters = [],
   radarUrl = null,
   lockedZoom = null,
+  clickedLocation = null,
+  onMapClick = null,
+  onAddAtClick = null,
+  onDismissClick = null,
 }) {
   const defaultCenter = mapCenter || (homeLocation ? [homeLocation.lat, homeLocation.lon] : [39.5, -98.35]);
   const defaultZoom = mapZoom || (homeLocation ? 14 : 4);
@@ -213,6 +286,12 @@ export default function MapView({
       <FlyToLocation center={mapCenter} zoom={mapZoom} />
       <ZoomLock lockedZoom={lockedZoom} />
       {onMapMove && <MapMoveHandler onMapMove={onMapMove} />}
+      {onMapClick && <MapClickHandler onClick={onMapClick} />}
+      <ClickPrompt
+        location={clickedLocation}
+        onAdd={() => onAddAtClick?.(clickedLocation)}
+        onDismiss={onDismissClick}
+      />
     </MapContainer>
   );
 }
