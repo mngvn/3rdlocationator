@@ -291,6 +291,9 @@ export default function App() {
       {searchLoading && (
         <div className="map-loading">⏳ Searching nearby venues…</div>
       )}
+      {!searchLoading && !searchError && currentBounds && currentZoom >= 12 && filteredSearch.length === 0 && (
+        <div className="map-loading map-empty">🤷 Nothing found!</div>
+      )}
 
       {(weather || weatherLoading) && (
         <WeatherWidget

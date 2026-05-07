@@ -958,6 +958,11 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   pointer-events: none;
   white-space: nowrap;
 }
+.map-loading.map-empty {
+  background: rgba(232,160,32,0.18);
+  border-color: rgba(232,160,32,0.4);
+  color: #ffd699;
+}
 
 /* ── Empty State / Error ────────────────────────────── */
 .empty-state {
