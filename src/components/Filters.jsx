@@ -69,14 +69,14 @@ export default function Filters({ filters, onChange, hasHomeLocation, mode = "fa
               checked={filters.walkingOnly}
               onChange={(e) => onChange({ ...filters, walkingOnly: e.target.checked })}
             />
-            Walking distance
+            Range
           </label>
           <label className="filter-range">
             Max: {filters.maxMiles} mi
             <input
               type="range"
               min="0.25"
-              max="5"
+              max="10"
               step="0.25"
               value={filters.maxMiles}
               onChange={(e) => onChange({ ...filters, maxMiles: parseFloat(e.target.value) })}
