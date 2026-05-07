@@ -13,6 +13,7 @@ function buildQuery(lat, lon, radiusMeters) {
       node[amenity=restaurant](around:${radiusMeters},${lat},${lon});
       node[amenity=cafe](around:${radiusMeters},${lat},${lon});
       node[amenity=nightclub](around:${radiusMeters},${lat},${lon});
+      node[amenity=music_venue](around:${radiusMeters},${lat},${lon});
       node[shop=alcohol](around:${radiusMeters},${lat},${lon});
     );
     out body;
@@ -29,6 +30,7 @@ function buildBboxQuery(south, west, north, east) {
       node[amenity=restaurant](${bbox});
       node[amenity=cafe](${bbox});
       node[amenity=nightclub](${bbox});
+      node[amenity=music_venue](${bbox});
       node[shop=alcohol](${bbox});
     );
     out body;

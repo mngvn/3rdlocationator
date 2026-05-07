@@ -4,6 +4,7 @@ const TYPE_OPTIONS = [
   { value: "restaurant",   label: "Restaurants",   emoji: "🍽️" },
   { value: "cafe",         label: "Cafes",         emoji: "☕" },
   { value: "nightclub",    label: "Nightclubs",    emoji: "🎵" },
+  { value: "music_venue",  label: "Music Venues",  emoji: "🎤" },
   { value: "liquor_store", label: "Liquor Stores", emoji: "🥃" },
 ];
 

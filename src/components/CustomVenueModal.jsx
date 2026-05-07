@@ -7,6 +7,7 @@ const TYPE_OPTIONS = [
   { value: "restaurant",   label: "Restaurant" },
   { value: "cafe",         label: "Cafe" },
   { value: "nightclub",    label: "Nightclub" },
+  { value: "music_venue",  label: "Music Venue" },
   { value: "liquor_store", label: "Liquor Store" },
 ];
 

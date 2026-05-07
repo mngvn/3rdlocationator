@@ -6,6 +6,7 @@ const TYPE_EMOJI = {
   restaurant: "🍽️",
   cafe: "☕",
   nightclub: "🎵",
+  music_venue: "🎤",
   liquor_store: "🥃",
 };
 

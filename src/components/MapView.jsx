@@ -9,6 +9,7 @@ const TYPE_STYLE = {
   restaurant:   { color: "#2ea84a", emoji: "🍽️", label: "Restaurant" },
   cafe:         { color: "#7e5b3e", emoji: "☕", label: "Cafe" },
   nightclub:    { color: "#5e2a87", emoji: "🎵", label: "Nightclub" },
+  music_venue:  { color: "#2a9d8f", emoji: "🎤", label: "Music Venue" },
   liquor_store: { color: "#9560b8", emoji: "🥃", label: "Liquor Store" },
 };
 
