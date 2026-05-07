@@ -427,15 +427,20 @@ export default function App() {
     }
     if (tab === "Custom") return userVenues;
     if (tab === "Routes") {
+      // Only render venues that are actually connected to a route — the
+      // route polylines and their nearby venues are the whole point of
+      // this tab. Off-route markers would just be noise.
       const merged = new Map();
       combinedSearch.forEach((v) => {
-        if (inView(v) || favoriteIds.has(v.id)) merged.set(v.id, v);
+        if (venueGlowIds.has(v.id)) merged.set(v.id, v);
       });
-      userVenues.forEach((v) => merged.set(v.id, v));
+      userVenues.forEach((v) => {
+        if (venueGlowIds.has(v.id)) merged.set(v.id, v);
+      });
       return Array.from(merged.values());
     }
     return filteredFavorites;
-  }, [tab, filteredSearch, filteredFavorites, userVenues, combinedSearch, currentZoom, currentBounds, favoriteIds]);
+  }, [tab, filteredSearch, filteredFavorites, userVenues, combinedSearch, currentZoom, currentBounds, favoriteIds, venueGlowIds]);
 
   const walkingRadius = filters.walkingOnly && homeLocation ? filters.maxMiles : null;
 
