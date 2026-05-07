@@ -63,6 +63,12 @@ export default function App() {
   const [hoveredRouteId, setHoveredRouteId] = useState(null);
   const [mapTarget, setMapTarget] = useState(null);
 
+  // For the connector line: pixel coords of the selected marker on the map,
+  // and the bounding rect of the right-side detail panel.
+  const [markerScreen, setMarkerScreen] = useState(null);
+  const [panelRect, setPanelRect] = useState(null);
+  const detailPanelRef = useRef(null);
+
   // Cache of the last fetched OSM region: we deliberately fetch a wider bbox
   // than the visible area so panning around inside it doesn't trigger
   // re-fetches. Stored in a ref so it survives renders without re-triggering.
@@ -308,6 +314,25 @@ export default function App() {
   }, [searchResults, userVenuesInView]);
   const filteredSearch = applyFilters(combinedSearch);
 
+  // Track the right-side detail panel's bounding rect so the connector
+  // line knows where to terminate. Updates on resize + content changes.
+  useEffect(() => {
+    if (!detailPanelRef.current) {
+      setPanelRect(null);
+      return;
+    }
+    const update = () => {
+      if (!detailPanelRef.current) return;
+      const r = detailPanelRef.current.getBoundingClientRect();
+      setPanelRect({ left: r.left, top: r.top, height: r.height });
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(detailPanelRef.current);
+    window.addEventListener("resize", update);
+    return () => { ro.disconnect(); window.removeEventListener("resize", update); };
+  }, [selectedVenueId]);
+
   // The currently selected venue (from a map marker click) — looked up across
   // every source so it works regardless of which tab the user is on.
   const selectedVenue = useMemo(() => {
@@ -520,6 +545,8 @@ export default function App() {
         savedRoutes={tab === "Routes" ? savedRoutesColored : []}
         venueGlowIds={effectiveGlowIds}
         hoveredRouteId={hoveredRouteId}
+        selectedVenuePosition={selectedVenue ? { lat: selectedVenue.lat, lon: selectedVenue.lon } : null}
+        onMarkerProject={setMarkerScreen}
         selectedVenueId={selectedVenueId}
         onMarkerClick={(v) => { setSelectedVenueId(v.id); flyToVenue(v); }}
         clickedLocation={clickedLocation}
@@ -840,8 +867,38 @@ export default function App() {
         )}
       </aside>
 
+      {selectedVenue && markerScreen && panelRect && (
+        <svg className="venue-connector" pointerEvents="none">
+          <line
+            x1={markerScreen.x}
+            y1={markerScreen.y}
+            x2={panelRect.left}
+            y2={panelRect.top + panelRect.height / 2}
+            stroke="var(--accent)"
+            strokeWidth="2.5"
+            strokeDasharray="8 5"
+            strokeLinecap="round"
+            opacity="0.85"
+          />
+          <circle
+            cx={markerScreen.x}
+            cy={markerScreen.y}
+            r="5"
+            fill="var(--accent)"
+            opacity="0.9"
+          />
+          <circle
+            cx={panelRect.left}
+            cy={panelRect.top + panelRect.height / 2}
+            r="5"
+            fill="var(--accent)"
+            opacity="0.9"
+          />
+        </svg>
+      )}
+
       {selectedVenue && (
-        <div className="venue-detail-panel">
+        <div className="venue-detail-panel" ref={detailPanelRef}>
           <button
             className="venue-detail-close"
             onClick={() => setSelectedVenueId(null)}

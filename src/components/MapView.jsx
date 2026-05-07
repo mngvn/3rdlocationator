@@ -203,6 +203,34 @@ function MapHoverHandler({ onMove }) {
   return null;
 }
 
+// Project a single lat/lon to container pixel coords every time the map
+// pans or zooms, calling back so an SVG overlay can draw the connector line.
+function MarkerProjector({ position, onProject }) {
+  const map = useMap();
+  const cbRef = useRef(onProject);
+  cbRef.current = onProject;
+  useEffect(() => {
+    if (!position) {
+      cbRef.current?.(null);
+      return;
+    }
+    function update() {
+      const pt = map.latLngToContainerPoint([position.lat, position.lon]);
+      cbRef.current?.({ x: pt.x, y: pt.y });
+    }
+    update();
+    map.on("move", update);
+    map.on("zoom", update);
+    map.on("zoomanim", update);
+    return () => {
+      map.off("move", update);
+      map.off("zoom", update);
+      map.off("zoomanim", update);
+    };
+  }, [map, position?.lat, position?.lon]);
+  return null;
+}
+
 function ClickPrompt({ location, onAdd, onPlanRoute, onDismiss }) {
   const markerRef = useRef(null);
   useEffect(() => {
@@ -253,6 +281,8 @@ export default function MapView({
   venueGlowIds = null,
   hoveredRouteId = null,
   selectedVenueId = null,
+  selectedVenuePosition = null,
+  onMarkerProject = null,
   onMarkerClick = null,
   pickingStart = null,
   clickedLocation = null,
@@ -275,23 +305,15 @@ export default function MapView({
           const isOnRoute = venueGlowIds?.has?.(v.id);
           const isSelected = selectedVenueId === v.id;
           return (
+            // No <Popup> child — selection is shown via the floating
+            // detail panel on the right plus a connector line.
             <Marker
               key={v.id}
               position={[v.lat, v.lon]}
               icon={makeIcon(v.type, isFavorite, !!v.custom, isOnRoute, isSelected)}
               zIndexOffset={(isFavorite ? 1000 : 0) + (isOnRoute ? 500 : 0) + (isSelected ? 2000 : 0)}
               eventHandlers={{ click: () => onMarkerClick?.(v) }}
-            >
-              <Popup>
-                <div className="map-popup">
-                  <span className="popup-type">{TYPE_STYLE[v.type]?.label || v.type}</span>
-                  <strong>{v.name}</strong>
-                  {v.address && <p>{v.address}</p>}
-                  {v.cuisine && <p className="popup-cuisine">{v.cuisine.replace(/_/g, " ")}</p>}
-                  {isFavorite && <p className="popup-fav">♥ Favorited</p>}
-                </div>
-              </Popup>
-            </Marker>
+            />
           );
         }),
     [venues, favoriteIds, venueGlowIds, selectedVenueId, onMarkerClick]
@@ -372,6 +394,7 @@ export default function MapView({
       <ZoomLock lockedZoom={lockedZoom} />
       {onMapMove && <MapMoveHandler onMapMove={onMapMove} />}
       {onMapClick && <MapClickHandler onClick={onMapClick} />}
+      {onMarkerProject && <MarkerProjector position={selectedVenuePosition} onProject={onMarkerProject} />}
       <ClickPrompt
         location={clickedLocation}
         onAdd={() => onAddAtClick?.(clickedLocation)}
