@@ -16,7 +16,7 @@ import WeatherWidget from "./components/WeatherWidget";
 import MapView from "./components/MapView";
 
 const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 0.4 };
-const TABS = ["Search", "Favorites", "Mine", "Routes"];
+const TABS = ["Search", "Favorites", "Custom", "Routes"];
 const DEFAULT_SEARCH_ZOOM = 14; // city-neighborhood view
 
 export default function App() {
@@ -425,7 +425,7 @@ export default function App() {
       filteredFavorites.forEach((v) => merged.set(v.id, v));
       return Array.from(merged.values());
     }
-    if (tab === "Mine") return userVenues;
+    if (tab === "Custom") return userVenues;
     if (tab === "Routes") {
       const merged = new Map();
       combinedSearch.forEach((v) => {
@@ -536,7 +536,7 @@ export default function App() {
                   {t === "Favorites" && favorites.length > 0 && (
                     <span className="tab-badge">{favorites.length}</span>
                   )}
-                  {t === "Mine" && userVenues.length > 0 && (
+                  {t === "Custom" && userVenues.length > 0 && (
                     <span className="tab-badge">{userVenues.length}</span>
                   )}
                   {t === "Routes" && savedRoutes.length > 0 && (
@@ -696,7 +696,7 @@ export default function App() {
           </section>
         )}
 
-        {tab === "Mine" && (
+        {tab === "Custom" && (
           <section className="panel-section">
             {userVenues.length === 0 ? (
               <div className="empty-state">
@@ -877,7 +877,7 @@ export default function App() {
       {customModalOpen && (
         <CustomVenueModal
           defaultLocation={customModalLocation || homeLocation}
-          onSave={(venue) => { saveUserVenue(venue); setTab("Mine"); }}
+          onSave={(venue) => { saveUserVenue(venue); setTab("Custom"); }}
           onClose={() => { setCustomModalOpen(false); setCustomModalLocation(null); }}
         />
       )}
