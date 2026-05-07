@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Pane } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Pane, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 
@@ -219,6 +219,7 @@ export default function MapView({
   eventCenters = [],
   radarUrl = null,
   lockedZoom = null,
+  walkingRoutes = [],
   clickedLocation = null,
   onMapClick = null,
   onAddAtClick = null,
@@ -280,6 +281,19 @@ export default function MapView({
           )}
         </>
       )}
+      {walkingRoutes.map((r) => (
+        <Polyline
+          key={`route-${r.id}`}
+          positions={r.route.geometry.coordinates.map(([lon, lat]) => [lat, lon])}
+          pathOptions={{
+            color: "#e8a020",
+            weight: 4,
+            opacity: 0.75,
+            dashArray: "8 6",
+            lineCap: "round",
+          }}
+        />
+      ))}
       {venueMarkers}
       {eventCenters.map((ec) => (
         <Marker key={`ec-${ec.id}`} position={[ec.lat, ec.lon]} icon={eventIcon()} zIndexOffset={500}>

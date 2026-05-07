@@ -69,15 +69,15 @@ export default function Filters({ filters, onChange, hasHomeLocation, mode = "fa
               checked={filters.walkingOnly}
               onChange={(e) => onChange({ ...filters, walkingOnly: e.target.checked })}
             />
-            Range
+            🚶 Walk somewhere
           </label>
           <label className="filter-range">
-            Max: {filters.maxMiles} mi
+            Max: {filters.maxMiles.toFixed(2)} mi · ~{Math.round(filters.maxMiles * 20)} min
             <input
               type="range"
-              min="0.25"
-              max="10"
-              step="0.25"
+              min="0.05"
+              max="1"
+              step="0.05"
               value={filters.maxMiles}
               onChange={(e) => onChange({ ...filters, maxMiles: parseFloat(e.target.value) })}
               disabled={!filters.walkingOnly}

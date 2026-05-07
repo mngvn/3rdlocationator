@@ -1,10 +1,11 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { searchVenuesBbox, geocodeAddress } from "./utils/overpass";
 import { EVENT_CENTERS } from "./data/eventCenters";
 import { haversineDistance } from "./utils/distance";
 import { parseOsmHappyHours } from "./utils/parseHappyHours";
 import { fetchWeather, fetchRadarFrames, radarTileUrl } from "./utils/weather";
+import { fetchWalkingRoute } from "./utils/routing";
 import LocationSearch from "./components/LocationSearch";
 import VenueCard from "./components/VenueCard";
 import Filters from "./components/Filters";
@@ -14,7 +15,7 @@ import NotesModal from "./components/NotesModal";
 import WeatherWidget from "./components/WeatherWidget";
 import MapView from "./components/MapView";
 
-const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 1 };
+const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 0.4 };
 const TABS = ["Search", "Favorites", "Mine"];
 
 export default function App() {
@@ -47,6 +48,10 @@ export default function App() {
   // Radar
   const [radarOn, setRadarOn] = useLocalStorage("bh_radar_on", false);
   const [radarFrame, setRadarFrame] = useState(null);
+
+  // Walking routes (one per visible venue when "Walk somewhere" is on)
+  const [walkingRoutes, setWalkingRoutes] = useState([]);
+  const routeCacheRef = useRef(new Map());
   const [hhModal, setHhModal] = useState(null);
   const [notesModal, setNotesModal] = useState(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
@@ -142,6 +147,51 @@ export default function App() {
   }, [radarOn]);
 
   const radarTile = radarFrame ? radarTileUrl(radarFrame.host, radarFrame.path) : null;
+
+  // Stable key for the visible venue set so the routing effect doesn't refire
+  // on every render (filteredSearch is a fresh array reference each render).
+  const filteredSearchKey = useMemo(
+    () => filteredSearch.map((v) => v.id).join("|"),
+    [filteredSearch]
+  );
+
+  // Generate walking routes from home → each venue in range when toggled on.
+  // Routes are cached in-memory by (home, venue.id) so panning doesn't refetch.
+  useEffect(() => {
+    if (!filters.walkingOnly || !homeLocation || filteredSearch.length === 0) {
+      setWalkingRoutes([]);
+      return;
+    }
+    const candidates = filteredSearch
+      .map((v) => ({ v, dist: haversineDistance(homeLocation.lat, homeLocation.lon, v.lat, v.lon) }))
+      .filter(({ dist }) => dist <= filters.maxMiles)
+      .sort((a, b) => a.dist - b.dist)
+      .slice(0, 15); // cap to keep API + render light
+
+    let cancelled = false;
+    const homeKey = `${homeLocation.lat.toFixed(5)},${homeLocation.lon.toFixed(5)}`;
+
+    const timer = setTimeout(async () => {
+      const collected = [];
+      for (const { v } of candidates) {
+        if (cancelled) return;
+        const cacheKey = `${homeKey}-${v.id}`;
+        let cached = routeCacheRef.current.get(cacheKey);
+        if (cached === undefined) {
+          cached = await fetchWalkingRoute(homeLocation, v);
+          routeCacheRef.current.set(cacheKey, cached || null);
+        }
+        if (cached?.geometry) {
+          collected.push({ id: v.id, name: v.name, route: cached });
+          if (!cancelled) setWalkingRoutes([...collected]);
+        }
+        await new Promise((r) => setTimeout(r, 80));
+      }
+    }, 250);
+
+    return () => { cancelled = true; clearTimeout(timer); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filters.walkingOnly, filters.maxMiles, homeLocation?.lat, homeLocation?.lon, filteredSearchKey]);
   const radarAgeMin = radarFrame ? Math.max(0, Math.round((Date.now() / 1000 - radarFrame.time) / 60)) : null;
 
   const visibleEventCenters = useMemo(() => {
@@ -314,6 +364,7 @@ export default function App() {
         eventCenters={visibleEventCenters}
         radarUrl={radarTile}
         lockedZoom={radarOn ? 6 : null}
+        walkingRoutes={walkingRoutes}
         clickedLocation={clickedLocation}
         onMapClick={setClickedLocation}
         onAddAtClick={(loc) => {
