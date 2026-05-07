@@ -733,6 +733,84 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 .delete-btn:hover { color: var(--red); border-color: var(--red); background: rgba(208,64,64,0.1); }
 
+/* ── Floating venue detail panel (selected marker, right side) ── */
+.venue-detail-panel {
+  position: absolute;
+  right: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 360px;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - 9rem);
+  overflow-y: auto;
+  z-index: 1100;
+  pointer-events: auto;
+  /* Slim blended scrollbar to match side panel */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+.venue-detail-panel::-webkit-scrollbar { width: 6px; }
+.venue-detail-panel::-webkit-scrollbar-track { background: transparent; }
+.venue-detail-panel::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 3px;
+}
+
+/* The card inside the detail panel — bigger version of the side-panel card */
+.venue-detail-panel .venue-card {
+  background: rgba(34, 34, 47, 0.96);
+  border: 2px solid var(--accent);
+  box-shadow:
+    0 0 0 4px rgba(232,160,32,0.3),
+    0 16px 44px rgba(0,0,0,0.6);
+  padding: 1.25rem 1.35rem;
+  gap: 0.75rem;
+  border-radius: 14px;
+  transform: none; /* override is-expanded scale — we already are big */
+}
+.venue-detail-panel .venue-name { font-size: 1.25rem; }
+.venue-detail-panel .card-meta { font-size: 0.86rem; }
+.venue-detail-panel .hh-badge { font-size: 0.85rem; padding: 0.32rem 0.75rem; }
+.venue-detail-panel .star { font-size: 1.4rem; }
+.venue-detail-panel .link-btn { font-size: 0.78rem; padding: 0.32rem 0.7rem; }
+
+.venue-detail-close {
+  position: absolute;
+  top: 0.65rem;
+  right: 0.65rem;
+  background: rgba(0,0,0,0.55);
+  border: 1px solid rgba(255,255,255,0.18);
+  color: #fff;
+  border-radius: 50%;
+  width: 30px;
+  height: 30px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+.venue-detail-close:hover {
+  background: rgba(0,0,0,0.75);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* On narrow screens the right panel would push off-screen; drop it
+   behind the FAB on the bottom-right and shrink it. */
+@media (max-width: 600px) {
+  .venue-detail-panel {
+    width: calc(100vw - 1.5rem);
+    top: auto;
+    bottom: 5.5rem;
+    transform: none;
+    max-height: 50vh;
+  }
+}
+
 /* ── Modal ──────────────────────────────────────────── */
 .modal-overlay {
   position: fixed;

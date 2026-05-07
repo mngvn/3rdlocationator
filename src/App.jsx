@@ -308,6 +308,18 @@ export default function App() {
   }, [searchResults, userVenuesInView]);
   const filteredSearch = applyFilters(combinedSearch);
 
+  // The currently selected venue (from a map marker click) — looked up across
+  // every source so it works regardless of which tab the user is on.
+  const selectedVenue = useMemo(() => {
+    if (!selectedVenueId) return null;
+    const pools = [combinedSearch, userVenues, favorites];
+    for (const pool of pools) {
+      const found = pool.find((v) => v.id === selectedVenueId);
+      if (found) return found;
+    }
+    return null;
+  }, [selectedVenueId, combinedSearch, userVenues, favorites]);
+
   // Distinct color palette so each saved route gets its own line color.
   // Active route always stays amber; saved routes cycle through this.
   const ROUTE_COLORS = ["#4a9be8", "#2ea84a", "#e8408b", "#9560b8", "#2a9d8f", "#d04040", "#c47d10", "#3a4a8a"];
@@ -827,6 +839,30 @@ export default function App() {
           </section>
         )}
       </aside>
+
+      {selectedVenue && (
+        <div className="venue-detail-panel">
+          <button
+            className="venue-detail-close"
+            onClick={() => setSelectedVenueId(null)}
+            title="Close"
+          >✕</button>
+          <VenueCard
+            venue={selectedVenue}
+            isFavorite={favoriteIds.has(selectedVenue.id)}
+            happyHour={getHappyHour(selectedVenue.id)}
+            rating={ratings[selectedVenue.id] || 0}
+            notes={notes[selectedVenue.id] || ""}
+            homeLocation={homeLocation}
+            onToggleFavorite={toggleFavorite}
+            onEditHappyHour={(v) => setHhModal({ venue: v })}
+            onEditNotes={(v) => setNotesModal({ venue: v })}
+            onSetRating={setRating}
+            onCardClick={(v) => flyToVenue(v)}
+            expanded={true}
+          />
+        </div>
+      )}
 
       {hhModal && (
         <HappyHourModal
