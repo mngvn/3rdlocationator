@@ -4,42 +4,52 @@ const OVERPASS_ENDPOINTS = [
   "https://overpass.openstreetmap.ru/api/interpreter",
 ];
 
+// All node types we pull from OSM, keyed by the type string we use internally.
+// Each value is the OSM filter clause (without coordinates, which get appended).
+const NODE_FILTERS = [
+  "[amenity=bar]",
+  "[amenity=pub]",
+  "[amenity=restaurant]",
+  "[amenity=fast_food]",
+  "[amenity=cafe]",
+  "[amenity=ice_cream]",
+  "[amenity=biergarten]",
+  "[amenity=food_court]",
+  "[amenity=nightclub]",
+  "[amenity=stripclub]",
+  "[amenity=music_venue]",
+  "[amenity=cinema]",
+  "[amenity=theatre]",
+  "[amenity=arts_centre]",
+  "[amenity=events_venue]",
+  "[amenity=casino]",
+  "[shop=alcohol]",
+  "[shop=wine]",
+];
+
 function buildQuery(lat, lon, radiusMeters) {
-  return `
-    [out:json][timeout:25];
-    (
-      node[amenity=bar](around:${radiusMeters},${lat},${lon});
-      node[amenity=pub](around:${radiusMeters},${lat},${lon});
-      node[amenity=restaurant](around:${radiusMeters},${lat},${lon});
-      node[amenity=cafe](around:${radiusMeters},${lat},${lon});
-      node[amenity=nightclub](around:${radiusMeters},${lat},${lon});
-      node[amenity=music_venue](around:${radiusMeters},${lat},${lon});
-      node[shop=alcohol](around:${radiusMeters},${lat},${lon});
-    );
-    out body;
-  `.trim();
+  const clauses = NODE_FILTERS
+    .map((f) => `      node${f}(around:${radiusMeters},${lat},${lon});`)
+    .join("\n");
+  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout body;`;
 }
 
 function buildBboxQuery(south, west, north, east) {
   const bbox = `${south},${west},${north},${east}`;
-  return `
-    [out:json][timeout:25];
-    (
-      node[amenity=bar](${bbox});
-      node[amenity=pub](${bbox});
-      node[amenity=restaurant](${bbox});
-      node[amenity=cafe](${bbox});
-      node[amenity=nightclub](${bbox});
-      node[amenity=music_venue](${bbox});
-      node[shop=alcohol](${bbox});
-    );
-    out body;
-  `.trim();
+  const clauses = NODE_FILTERS
+    .map((f) => `      node${f}(${bbox});`)
+    .join("\n");
+  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout body;`;
 }
+
+const SHOP_TYPE_MAP = {
+  alcohol: "liquor_store",
+  wine: "wine_shop",
+};
 
 function parseVenue(node) {
   const t = node.tags || {};
-  const type = t.amenity || (t.shop === "alcohol" ? "liquor_store" : null);
+  const type = t.amenity || (t.shop && SHOP_TYPE_MAP[t.shop]) || null;
   return {
     id: String(node.id),
     name: t.name || "Unnamed",

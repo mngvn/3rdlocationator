@@ -1,11 +1,22 @@
 const TYPE_OPTIONS = [
   { value: "bar",          label: "Bars",          emoji: "🍺" },
   { value: "pub",          label: "Pubs",          emoji: "🍻" },
+  { value: "biergarten",   label: "Beer Gardens",  emoji: "🍻" },
   { value: "restaurant",   label: "Restaurants",   emoji: "🍽️" },
+  { value: "fast_food",    label: "Fast Food",     emoji: "🍔" },
+  { value: "food_court",   label: "Food Courts",   emoji: "🍱" },
   { value: "cafe",         label: "Cafes",         emoji: "☕" },
+  { value: "ice_cream",    label: "Ice Cream",     emoji: "🍦" },
   { value: "nightclub",    label: "Nightclubs",    emoji: "🎵" },
+  { value: "stripclub",    label: "Adult Clubs",   emoji: "💃" },
   { value: "music_venue",  label: "Music Venues",  emoji: "🎤" },
+  { value: "cinema",       label: "Cinemas",       emoji: "🎬" },
+  { value: "theatre",      label: "Theatres",      emoji: "🎭" },
+  { value: "arts_centre",  label: "Arts Centres",  emoji: "🎨" },
+  { value: "events_venue", label: "Event Spaces",  emoji: "🎪" },
+  { value: "casino",       label: "Casinos",       emoji: "🎰" },
   { value: "liquor_store", label: "Liquor Stores", emoji: "🥃" },
+  { value: "wine_shop",    label: "Wine Shops",    emoji: "🍷" },
 ];
 
 function toggleType(types, value) {

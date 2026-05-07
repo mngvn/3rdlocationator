@@ -3,11 +3,22 @@ import { haversineDistance, walkingMinutes } from "../utils/distance";
 const TYPE_EMOJI = {
   bar: "🍺",
   pub: "🍻",
+  biergarten: "🍻",
   restaurant: "🍽️",
+  fast_food: "🍔",
+  food_court: "🍱",
   cafe: "☕",
+  ice_cream: "🍦",
   nightclub: "🎵",
+  stripclub: "💃",
   music_venue: "🎤",
+  cinema: "🎬",
+  theatre: "🎭",
+  arts_centre: "🎨",
+  events_venue: "🎪",
+  casino: "🎰",
   liquor_store: "🥃",
+  wine_shop: "🍷",
 };
 
 function googleReviewsUrl(venue) {

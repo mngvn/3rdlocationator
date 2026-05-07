@@ -4,11 +4,22 @@ import { geocodeAddress } from "../utils/overpass";
 const TYPE_OPTIONS = [
   { value: "bar",          label: "Bar" },
   { value: "pub",          label: "Pub" },
+  { value: "biergarten",   label: "Beer Garden" },
   { value: "restaurant",   label: "Restaurant" },
+  { value: "fast_food",    label: "Fast Food" },
+  { value: "food_court",   label: "Food Court" },
   { value: "cafe",         label: "Cafe" },
+  { value: "ice_cream",    label: "Ice Cream" },
   { value: "nightclub",    label: "Nightclub" },
+  { value: "stripclub",    label: "Adult Club" },
   { value: "music_venue",  label: "Music Venue" },
+  { value: "cinema",       label: "Cinema" },
+  { value: "theatre",      label: "Theatre" },
+  { value: "arts_centre",  label: "Arts Centre" },
+  { value: "events_venue", label: "Event Space" },
+  { value: "casino",       label: "Casino" },
   { value: "liquor_store", label: "Liquor Store" },
+  { value: "wine_shop",    label: "Wine Shop" },
 ];
 
 export default function CustomVenueModal({ defaultLocation, onSave, onClose }) {

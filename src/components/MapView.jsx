@@ -6,11 +6,22 @@ import "leaflet/dist/leaflet.css";
 const TYPE_STYLE = {
   bar:          { color: "#d04040", emoji: "🍺", label: "Bar" },
   pub:          { color: "#c47d10", emoji: "🍻", label: "Pub" },
+  biergarten:   { color: "#a37425", emoji: "🍻", label: "Beer Garden" },
   restaurant:   { color: "#2ea84a", emoji: "🍽️", label: "Restaurant" },
+  fast_food:    { color: "#e8623a", emoji: "🍔", label: "Fast Food" },
+  food_court:   { color: "#c8521a", emoji: "🍱", label: "Food Court" },
   cafe:         { color: "#7e5b3e", emoji: "☕", label: "Cafe" },
+  ice_cream:    { color: "#e8a4c7", emoji: "🍦", label: "Ice Cream" },
   nightclub:    { color: "#5e2a87", emoji: "🎵", label: "Nightclub" },
+  stripclub:    { color: "#c92076", emoji: "💃", label: "Adult Club" },
   music_venue:  { color: "#2a9d8f", emoji: "🎤", label: "Music Venue" },
+  cinema:       { color: "#3a4a8a", emoji: "🎬", label: "Cinema" },
+  theatre:      { color: "#7e3a8e", emoji: "🎭", label: "Theatre" },
+  arts_centre:  { color: "#3a9bd4", emoji: "🎨", label: "Arts Centre" },
+  events_venue: { color: "#226d8a", emoji: "🎪", label: "Event Space" },
+  casino:       { color: "#d4a017", emoji: "🎰", label: "Casino" },
   liquor_store: { color: "#9560b8", emoji: "🥃", label: "Liquor Store" },
+  wine_shop:    { color: "#7a1e3a", emoji: "🍷", label: "Wine Shop" },
 };
 
 function makeIcon(type, isFavorite, isCustom) {
