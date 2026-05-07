@@ -2,46 +2,51 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { MapContainer, TileLayer, Marker, Popup, useMap, Circle, Pane, Polyline } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import { venueIconSvg } from "./VenueIcon";
 
 const TYPE_STYLE = {
-  bar:          { color: "#d04040", emoji: "🍺", label: "Bar" },
-  pub:          { color: "#c47d10", emoji: "🍻", label: "Pub" },
-  biergarten:   { color: "#a37425", emoji: "🍻", label: "Beer Garden" },
-  restaurant:   { color: "#2ea84a", emoji: "🍽️", label: "Restaurant" },
-  fast_food:    { color: "#e8623a", emoji: "🍔", label: "Fast Food" },
-  food_court:   { color: "#c8521a", emoji: "🍱", label: "Food Court" },
-  cafe:         { color: "#7e5b3e", emoji: "☕", label: "Cafe" },
-  ice_cream:    { color: "#e8a4c7", emoji: "🍦", label: "Ice Cream" },
-  nightclub:    { color: "#5e2a87", emoji: "🎵", label: "Nightclub" },
-  stripclub:    { color: "#c92076", emoji: "💃", label: "Adult Club" },
-  music_venue:  { color: "#2a9d8f", emoji: "🎤", label: "Music Venue" },
-  cinema:       { color: "#3a4a8a", emoji: "🎬", label: "Cinema" },
-  theatre:      { color: "#7e3a8e", emoji: "🎭", label: "Theatre" },
-  arts_centre:  { color: "#3a9bd4", emoji: "🎨", label: "Arts Centre" },
-  events_venue: { color: "#226d8a", emoji: "🎪", label: "Event Space" },
-  casino:       { color: "#d4a017", emoji: "🎰", label: "Casino" },
-  liquor_store: { color: "#9560b8", emoji: "🥃", label: "Liquor Store" },
-  wine_shop:    { color: "#7a1e3a", emoji: "🍷", label: "Wine Shop" },
+  bar:          { color: "#d04040", label: "Bar" },
+  pub:          { color: "#c47d10", label: "Pub" },
+  biergarten:   { color: "#a37425", label: "Beer Garden" },
+  restaurant:   { color: "#2ea84a", label: "Restaurant" },
+  fast_food:    { color: "#e8623a", label: "Fast Food" },
+  food_court:   { color: "#c8521a", label: "Food Court" },
+  cafe:         { color: "#7e5b3e", label: "Cafe" },
+  ice_cream:    { color: "#e8a4c7", label: "Ice Cream" },
+  nightclub:    { color: "#5e2a87", label: "Nightclub" },
+  stripclub:    { color: "#c92076", label: "Adult Club" },
+  music_venue:  { color: "#2a9d8f", label: "Music Venue" },
+  cinema:       { color: "#3a4a8a", label: "Cinema" },
+  theatre:      { color: "#7e3a8e", label: "Theatre" },
+  arts_centre:  { color: "#3a9bd4", label: "Arts Centre" },
+  events_venue: { color: "#226d8a", label: "Event Space" },
+  sporting_arena: { color: "#b8302e", label: "Sporting Arena" },
+  casino:       { color: "#d4a017", label: "Casino" },
+  liquor_store: { color: "#9560b8", label: "Liquor Store" },
+  wine_shop:    { color: "#7a1e3a", label: "Wine Shop" },
 };
 
-function makeIcon(type, isFavorite, isCustom) {
+function makeIcon(type, isFavorite, isCustom, isOnRoute, isSelected) {
   const style = TYPE_STYLE[type] || TYPE_STYLE.bar;
-  const headSize = isFavorite ? 34 : 28;
-  const totalH = isFavorite ? 48 : 40;
-  const favClass = isFavorite ? "is-fav" : "";
+  const headSize = isSelected ? 38 : isFavorite ? 34 : 28;
+  const totalH = isSelected ? 52 : isFavorite ? 48 : 40;
+  const classes = ["venue-marker"];
+  if (isFavorite) classes.push("is-fav");
+  if (isOnRoute) classes.push("is-on-route");
+  if (isSelected) classes.push("is-selected");
   const customBadge = isCustom ? `<div class="custom-badge">★</div>` : "";
   return L.divIcon({
-    className: `venue-marker ${favClass}`,
+    className: classes.join(" "),
     html: `
       <div class="pin-wrap" style="width:${headSize}px;height:${totalH}px">
         <div class="pin-head" style="background:${style.color};width:${headSize}px;height:${headSize}px">
-          <span class="pin-emoji">${style.emoji}</span>
+          <span class="pin-icon">${venueIconSvg(type)}</span>
         </div>
         ${customBadge}
       </div>
     `,
     iconSize: [headSize, totalH],
-    iconAnchor: [headSize / 2, totalH], // anchor at the tip of the pin
+    iconAnchor: [headSize / 2, totalH],
     popupAnchor: [0, -totalH + 8],
   });
 }
@@ -175,7 +180,30 @@ function MapClickHandler({ onClick }) {
   return null;
 }
 
-function ClickPrompt({ location, onAdd, onDismiss }) {
+function MapHoverHandler({ onMove }) {
+  const map = useMap();
+  const cbRef = useRef(onMove);
+  cbRef.current = onMove;
+  const lastFireRef = useRef(0);
+  useEffect(() => {
+    if (!onMove) return;
+    function handler(e) {
+      const now = Date.now();
+      if (now - lastFireRef.current < 33) return; // ~30fps cap
+      lastFireRef.current = now;
+      cbRef.current?.({ lat: e.latlng.lat, lon: e.latlng.lng });
+    }
+    map.on("mousemove", handler);
+    map.on("mouseout", () => cbRef.current?.(null));
+    return () => {
+      map.off("mousemove", handler);
+      map.off("mouseout");
+    };
+  }, [map, onMove]);
+  return null;
+}
+
+function ClickPrompt({ location, onAdd, onPlanRoute, onDismiss }) {
   const markerRef = useRef(null);
   useEffect(() => {
     if (markerRef.current) markerRef.current.openPopup();
@@ -191,9 +219,10 @@ function ClickPrompt({ location, onAdd, onDismiss }) {
     >
       <Popup closeButton={false} autoPan={true}>
         <div className="map-popup click-prompt">
-          <strong>Add a venue here?</strong>
+          <strong>What would you like to do here?</strong>
           <p className="click-prompt-coord">{location.lat.toFixed(5)}, {location.lon.toFixed(5)}</p>
           <button className="btn-primary" onClick={onAdd}>+ Add Venue Here</button>
+          <button className="btn-secondary click-prompt-route-btn" onClick={onPlanRoute}>🗺️ Plan Route Here</button>
         </div>
       </Popup>
     </Marker>
@@ -219,10 +248,16 @@ export default function MapView({
   eventCenters = [],
   radarUrl = null,
   lockedZoom = null,
-  walkingRoutes = [],
+  activeRoute = null,
+  savedRoutes = [],
+  venueGlowIds = null,
+  selectedVenueId = null,
+  onMarkerClick = null,
+  pickingStart = null,
   clickedLocation = null,
   onMapClick = null,
   onAddAtClick = null,
+  onPlanRouteAtClick = null,
   onDismissClick = null,
 }) {
   const defaultCenter = mapCenter || (homeLocation ? [homeLocation.lat, homeLocation.lon] : [39.5, -98.35]);
@@ -236,12 +271,15 @@ export default function MapView({
         .sort((a, b) => Number(favoriteIds.has(a.id)) - Number(favoriteIds.has(b.id)))
         .map((v) => {
           const isFavorite = favoriteIds.has(v.id);
+          const isOnRoute = venueGlowIds?.has?.(v.id);
+          const isSelected = selectedVenueId === v.id;
           return (
             <Marker
               key={v.id}
               position={[v.lat, v.lon]}
-              icon={makeIcon(v.type, isFavorite, !!v.custom)}
-              zIndexOffset={isFavorite ? 1000 : 0}
+              icon={makeIcon(v.type, isFavorite, !!v.custom, isOnRoute, isSelected)}
+              zIndexOffset={(isFavorite ? 1000 : 0) + (isOnRoute ? 500 : 0) + (isSelected ? 2000 : 0)}
+              eventHandlers={{ click: () => onMarkerClick?.(v) }}
             >
               <Popup>
                 <div className="map-popup">
@@ -255,7 +293,7 @@ export default function MapView({
             </Marker>
           );
         }),
-    [venues, favoriteIds]
+    [venues, favoriteIds, venueGlowIds, selectedVenueId, onMarkerClick]
   );
 
   return (
@@ -281,19 +319,29 @@ export default function MapView({
           )}
         </>
       )}
-      {walkingRoutes.map((r) => (
+      {/* Saved routes (shown when on Routes tab) — each one a distinct color */}
+      {savedRoutes.map((r) => (
         <Polyline
-          key={`route-${r.id}`}
-          positions={r.route.geometry.coordinates.map(([lon, lat]) => [lat, lon])}
-          pathOptions={{
-            color: "#e8a020",
-            weight: 4,
-            opacity: 0.75,
-            dashArray: "8 6",
-            lineCap: "round",
-          }}
+          key={`saved-${r.id}`}
+          positions={r.geometry.coordinates.map(([lon, lat]) => [lat, lon])}
+          pathOptions={{ color: r._color || "#e8a020", weight: 4, opacity: 0.85, lineCap: "round" }}
         />
       ))}
+      {/* Active route — solid bright amber, with start + end dots */}
+      {activeRoute?.route?.geometry && (
+        <>
+          <Polyline
+            positions={activeRoute.route.geometry.coordinates.map(([lon, lat]) => [lat, lon])}
+            pathOptions={{ color: "#e8a020", weight: 5, opacity: 0.9, lineCap: "round" }}
+          />
+          <Marker position={[activeRoute.start.lat, activeRoute.start.lon]} icon={clickPromptIcon()} zIndexOffset={1500}>
+            <Popup>Start{activeRoute.start.label ? `: ${activeRoute.start.label}` : ""}</Popup>
+          </Marker>
+          <Marker position={[activeRoute.destination.lat, activeRoute.destination.lon]} icon={clickPromptIcon()} zIndexOffset={1500}>
+            <Popup>Destination</Popup>
+          </Marker>
+        </>
+      )}
       {venueMarkers}
       {eventCenters.map((ec) => (
         <Marker key={`ec-${ec.id}`} position={[ec.lat, ec.lon]} icon={eventIcon()} zIndexOffset={500}>
@@ -316,6 +364,7 @@ export default function MapView({
       <ClickPrompt
         location={clickedLocation}
         onAdd={() => onAddAtClick?.(clickedLocation)}
+        onPlanRoute={() => onPlanRouteAtClick?.(clickedLocation)}
         onDismiss={onDismissClick}
       />
     </MapContainer>

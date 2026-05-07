@@ -1,7 +1,7 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+﻿import { useState, useMemo, useEffect, useRef } from "react";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { searchVenuesBbox, geocodeAddress } from "./utils/overpass";
-import { EVENT_CENTERS } from "./data/eventCenters";
+import { SPORT_ARENAS } from "./data/eventCenters";
 import { haversineDistance } from "./utils/distance";
 import { parseOsmHappyHours } from "./utils/parseHappyHours";
 import { fetchWeather, fetchRadarFrames, radarTileUrl } from "./utils/weather";
@@ -16,7 +16,7 @@ import WeatherWidget from "./components/WeatherWidget";
 import MapView from "./components/MapView";
 
 const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 0.4 };
-const TABS = ["Search", "Favorites", "Mine"];
+const TABS = ["Search", "Favorites", "Mine", "Routes"];
 
 export default function App() {
   const [tab, setTab] = useState("Search");
@@ -37,9 +37,6 @@ export default function App() {
   const [currentBounds, setCurrentBounds] = useState(null);
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
 
-  // Events
-  const [eventsOn, setEventsOn] = useLocalStorage("bh_events_on", false);
-
   // Weather
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
@@ -49,21 +46,36 @@ export default function App() {
   const [radarOn, setRadarOn] = useLocalStorage("bh_radar_on", false);
   const [radarFrame, setRadarFrame] = useState(null);
 
-  // Walking routes (one per visible venue when "Walk somewhere" is on)
-  const [walkingRoutes, setWalkingRoutes] = useState([]);
-  const routeCacheRef = useRef(new Map());
+  // Routes
+  const [savedRoutes, setSavedRoutes] = useLocalStorage("bh_saved_routes", []);
+  const [pendingRouteDest, setPendingRouteDest] = useState(null); // shown in start picker
+  const [pickingStart, setPickingStart] = useState(null);          // { destination } while user clicks
+  const [activeRoute, setActiveRoute] = useState(null);            // { start, destination, route }
+  const [routeError, setRouteError] = useState(null);
+  const [routeLoading, setRouteLoading] = useState(false);
   const [hhModal, setHhModal] = useState(null);
   const [notesModal, setNotesModal] = useState(null);
   const [customModalOpen, setCustomModalOpen] = useState(false);
   const [customModalLocation, setCustomModalLocation] = useState(null);
   const [clickedLocation, setClickedLocation] = useState(null);
+  const [selectedVenueId, setSelectedVenueId] = useState(null);
   const [mapTarget, setMapTarget] = useState(null);
+
+  // Cache of the last fetched OSM region: we deliberately fetch a wider bbox
+  // than the visible area so panning around inside it doesn't trigger
+  // re-fetches. Stored in a ref so it survives renders without re-triggering.
+  const venuesCacheRef = useRef(null); // { bbox: {south,west,north,east}, venues: Venue[] }
+  const [reloadAvailable, setReloadAvailable] = useState(false);
+  const lastBoundsRef = useRef(null);
 
   async function handleSearch(query, radiusMeters) {
     setSearchLoading(true);
     setSearchError(null);
     try {
       const geo = await geocodeAddress(query);
+      // Drop the venues cache so the next moveend triggers a fresh big load
+      venuesCacheRef.current = null;
+      setReloadAvailable(false);
       setHomeLocation({ label: geo.label, lat: geo.lat, lon: geo.lon });
       setMapTarget({ center: [geo.lat, geo.lon], zoom: zoomForRadius(radiusMeters) });
       // Venue loading is driven by the map's moveend event after flyTo
@@ -76,20 +88,25 @@ export default function App() {
     }
   }
 
-  async function handleMapMove({ lat, lon, zoom, bounds }) {
-    setCurrentZoom(zoom);
-    setCurrentBounds(bounds);
-
-    if (zoom < 12) {
-      setSearchResults([]);
-      return;
-    }
+  async function loadVenuesForBounds(bounds) {
+    // Just slightly bigger than the visible area — enough buffer that small
+    // pans don't trigger the reload prompt, but light enough to render fast.
+    const fetchBbox = expandBbox(bounds, 1.3);
     setSearchLoading(true);
     setSearchError(null);
     try {
-      const results = await searchVenuesBbox(bounds.south, bounds.west, bounds.north, bounds.east);
-      setSearchResults(results);
-
+      const results = await searchVenuesBbox(fetchBbox.south, fetchBbox.west, fetchBbox.north, fetchBbox.east);
+      // Merge in any sporting arenas that fall inside this fetched region so
+      // they appear at the same instant as the OSM venues (not before).
+      const arenasHere = SPORT_ARENAS.filter(
+        (a) => a.lat >= fetchBbox.south && a.lat <= fetchBbox.north
+            && a.lon >= fetchBbox.west  && a.lon <= fetchBbox.east
+      );
+      const seen = new Set(results.map((v) => v.id));
+      const merged = results.concat(arenasHere.filter((a) => !seen.has(a.id)));
+      venuesCacheRef.current = { bbox: fetchBbox, venues: merged };
+      setSearchResults(merged);
+      setReloadAvailable(false);
       const newHH = {};
       results.forEach((v) => {
         if (v.osmHappyHours && !happyHours[v.id]) {
@@ -105,6 +122,36 @@ export default function App() {
     } finally {
       setSearchLoading(false);
     }
+  }
+
+  async function handleMapMove({ lat, lon, zoom, bounds }) {
+    setCurrentZoom(zoom);
+    setCurrentBounds(bounds);
+    lastBoundsRef.current = bounds;
+
+    if (zoom < 12) {
+      setSearchResults([]);
+      setReloadAvailable(false);
+      return;
+    }
+
+    const cached = venuesCacheRef.current;
+    // Inside the cached super-region — instant, no fetch, no toast
+    if (cached && bboxContains(cached.bbox, bounds)) {
+      setSearchResults(cached.venues);
+      setReloadAvailable(false);
+      return;
+    }
+
+    // No cache yet (initial load after a search) → auto-fetch the big area
+    if (!cached) {
+      await loadVenuesForBounds(bounds);
+      return;
+    }
+
+    // Cache exists but user has wandered out of it. Don't auto-fetch — show
+    // the "Re-Load venues" button so they choose when to spend the request.
+    setReloadAvailable(true);
   }
 
   // Refetch weather whenever the user picks a new home location
@@ -147,61 +194,11 @@ export default function App() {
   }, [radarOn]);
 
   const radarTile = radarFrame ? radarTileUrl(radarFrame.host, radarFrame.path) : null;
-
-  // Stable key for the visible venue set so the routing effect doesn't refire
-  // on every render (filteredSearch is a fresh array reference each render).
-  const filteredSearchKey = useMemo(
-    () => filteredSearch.map((v) => v.id).join("|"),
-    [filteredSearch]
-  );
-
-  // Generate walking routes from home → each venue in range when toggled on.
-  // Routes are cached in-memory by (home, venue.id) so panning doesn't refetch.
-  useEffect(() => {
-    if (!filters.walkingOnly || !homeLocation || filteredSearch.length === 0) {
-      setWalkingRoutes([]);
-      return;
-    }
-    const candidates = filteredSearch
-      .map((v) => ({ v, dist: haversineDistance(homeLocation.lat, homeLocation.lon, v.lat, v.lon) }))
-      .filter(({ dist }) => dist <= filters.maxMiles)
-      .sort((a, b) => a.dist - b.dist)
-      .slice(0, 15); // cap to keep API + render light
-
-    let cancelled = false;
-    const homeKey = `${homeLocation.lat.toFixed(5)},${homeLocation.lon.toFixed(5)}`;
-
-    const timer = setTimeout(async () => {
-      const collected = [];
-      for (const { v } of candidates) {
-        if (cancelled) return;
-        const cacheKey = `${homeKey}-${v.id}`;
-        let cached = routeCacheRef.current.get(cacheKey);
-        if (cached === undefined) {
-          cached = await fetchWalkingRoute(homeLocation, v);
-          routeCacheRef.current.set(cacheKey, cached || null);
-        }
-        if (cached?.geometry) {
-          collected.push({ id: v.id, name: v.name, route: cached });
-          if (!cancelled) setWalkingRoutes([...collected]);
-        }
-        await new Promise((r) => setTimeout(r, 80));
-      }
-    }, 250);
-
-    return () => { cancelled = true; clearTimeout(timer); };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters.walkingOnly, filters.maxMiles, homeLocation?.lat, homeLocation?.lon, filteredSearchKey]);
   const radarAgeMin = radarFrame ? Math.max(0, Math.round((Date.now() / 1000 - radarFrame.time) / 60)) : null;
 
-  const visibleEventCenters = useMemo(() => {
-    if (!eventsOn) return [];
-    if (!currentBounds) return EVENT_CENTERS;
-    const { south, west, north, east } = currentBounds;
-    return EVENT_CENTERS.filter(
-      (e) => e.lat >= south && e.lat <= north && e.lon >= west && e.lon <= east
-    );
-  }, [eventsOn, currentBounds]);
+  // Note: sporting arenas are merged INTO the searchResults bundle inside
+  // loadVenuesForBounds() so they appear at the same instant as the OSM
+  // venues, instead of popping in instantly from the static list.
 
   function saveUserVenue(venue) {
     // Persist to user-venues list (independent of favorites)
@@ -299,8 +296,8 @@ export default function App() {
   }, [userVenues, currentBounds]);
 
   const filteredFavorites = applyFilters(favorites);
-  // Merge OSM search results with any user-added venues in the current
-  // viewport — they're indistinguishable from "real" results for filtering.
+  // Merge OSM search results (which already include sporting arenas mixed
+  // in at fetch time) with user-added venues in the current viewport.
   const combinedSearch = useMemo(() => {
     const merged = new Map();
     searchResults.forEach((v) => merged.set(v.id, v));
@@ -309,18 +306,118 @@ export default function App() {
   }, [searchResults, userVenuesInView]);
   const filteredSearch = applyFilters(combinedSearch);
 
+  // Distinct color palette so each saved route gets its own line color.
+  // Active route always stays amber; saved routes cycle through this.
+  const ROUTE_COLORS = ["#4a9be8", "#2ea84a", "#e8408b", "#9560b8", "#2a9d8f", "#d04040", "#c47d10", "#3a4a8a"];
+
+  const savedRoutesColored = useMemo(
+    () => savedRoutes.map((r, i) => ({ ...r, _color: ROUTE_COLORS[i % ROUTE_COLORS.length] })),
+    [savedRoutes]
+  );
+
+  // Helper: venues within ~160m of any point on a route polyline.
+  function venuesNearGeometry(coords, candidates, maxMiles = 0.1) {
+    return candidates.filter((v) => {
+      for (let i = 0; i < coords.length; i++) {
+        const [lon, lat] = coords[i];
+        if (haversineDistance(v.lat, v.lon, lat, lon) < maxMiles) return true;
+      }
+      return false;
+    });
+  }
+
+  // Combined pool for route-proximity checks: visible OSM results + all user venues
+  const routeCandidates = useMemo(() => {
+    const seen = new Set(combinedSearch.map((v) => v.id));
+    return [...combinedSearch, ...userVenues.filter((v) => !seen.has(v.id))];
+  }, [combinedSearch, userVenues]);
+
+  const venuesAlongRoute = useMemo(() => {
+    if (!activeRoute?.route?.geometry) return [];
+    return venuesNearGeometry(activeRoute.route.geometry.coordinates, routeCandidates);
+  }, [activeRoute, routeCandidates]);
+
+  // For each saved route, the venues that are near it (only computed when
+  // the user is actually on the Routes tab so we don't pay for off-screen work).
+  const savedRouteVenuesMap = useMemo(() => {
+    if (tab !== "Routes" || savedRoutes.length === 0) return new Map();
+    const map = new Map();
+    for (const r of savedRoutes) {
+      map.set(r.id, venuesNearGeometry(r.geometry.coordinates, routeCandidates));
+    }
+    return map;
+  }, [tab, savedRoutes, routeCandidates]);
+
+  const venueGlowIds = useMemo(() => {
+    const set = new Set(venuesAlongRoute.map((v) => v.id));
+    for (const venues of savedRouteVenuesMap.values()) {
+      venues.forEach((v) => set.add(v.id));
+    }
+    return set;
+  }, [venuesAlongRoute, savedRouteVenuesMap]);
+
+  async function planRouteWithStart(start, destination) {
+    setRouteLoading(true);
+    setRouteError(null);
+    setActiveRoute(null);
+    try {
+      const route = await fetchWalkingRoute(start, destination);
+      if (!route) {
+        setRouteError("Couldn't find a walkable route between those points.");
+      } else {
+        setActiveRoute({ start, destination, route });
+        setMapTarget({
+          center: [(start.lat + destination.lat) / 2, (start.lon + destination.lon) / 2],
+          zoom: 15,
+        });
+      }
+    } catch {
+      setRouteError("Routing service failed. Try again.");
+    } finally {
+      setRouteLoading(false);
+    }
+  }
+
+  function saveActiveRoute() {
+    if (!activeRoute) return;
+    const r = activeRoute;
+    const saved = {
+      id: `route_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      savedAt: Date.now(),
+      origin: r.start,
+      destination: r.destination,
+      geometry: r.route.geometry,
+      distanceMeters: r.route.distanceMeters,
+      durationSeconds: r.route.durationSeconds,
+    };
+    setSavedRoutes((prev) => [saved, ...prev]);
+    setActiveRoute(null);
+    setTab("Routes");
+  }
+
+  function deleteSavedRoute(id) {
+    setSavedRoutes((prev) => prev.filter((r) => r.id !== id));
+  }
+
   // Map shows only what's relevant to the current tab — no permanent pins.
   const mapVenues = useMemo(() => {
     if (tab === "Search") {
       const merged = new Map();
       filteredSearch.forEach((v) => merged.set(v.id, v));
-      // Layer favorites in too so they remain visible outside the search radius
       filteredFavorites.forEach((v) => merged.set(v.id, v));
       return Array.from(merged.values());
     }
     if (tab === "Mine") return userVenues;
+    if (tab === "Routes") {
+      // Show currently-loaded OSM venues + user venues so anything near a
+      // saved route appears (and gets the glow highlight).
+      const merged = new Map();
+      combinedSearch.forEach((v) => merged.set(v.id, v));
+      userVenues.forEach((v) => merged.set(v.id, v));
+      return Array.from(merged.values());
+    }
     return filteredFavorites;
-  }, [tab, filteredSearch, filteredFavorites, userVenues]);
+  }, [tab, filteredSearch, filteredFavorites, userVenues, combinedSearch]);
 
   const walkingRadius = filters.walkingOnly && homeLocation ? filters.maxMiles : null;
 
@@ -339,10 +436,21 @@ export default function App() {
         <div className="zoom-hint radar-hint">🌧️ Zoom locked while radar is on</div>
       )}
       {searchLoading && (
-        <div className="map-loading">⏳ Searching nearby venues…</div>
+        <div className="map-loading">
+          <span className="throbber" />
+          Searching nearby venues…
+        </div>
       )}
-      {!searchLoading && !searchError && currentBounds && currentZoom >= 12 && filteredSearch.length === 0 && (
+      {!searchLoading && !searchError && currentBounds && currentZoom >= 12 && filteredSearch.length === 0 && !reloadAvailable && (
         <div className="map-loading map-empty">🤷 Nothing found!</div>
+      )}
+      {reloadAvailable && !searchLoading && currentZoom >= 12 && (
+        <button
+          className="reload-venues-btn"
+          onClick={() => lastBoundsRef.current && loadVenuesForBounds(lastBoundsRef.current)}
+        >
+          🔄 Re-load venues for this area
+        </button>
       )}
 
       {(weather || weatherLoading) && (
@@ -361,15 +469,32 @@ export default function App() {
         mapZoom={mapTarget?.zoom}
         walkingRadius={walkingRadius}
         onMapMove={handleMapMove}
-        eventCenters={visibleEventCenters}
         radarUrl={radarTile}
         lockedZoom={radarOn ? 6 : null}
-        walkingRoutes={walkingRoutes}
+        activeRoute={activeRoute}
+        savedRoutes={tab === "Routes" ? savedRoutesColored : []}
+        venueGlowIds={venueGlowIds}
+        selectedVenueId={selectedVenueId}
+        onMarkerClick={(v) => { setSelectedVenueId(v.id); flyToVenue(v); }}
         clickedLocation={clickedLocation}
-        onMapClick={setClickedLocation}
+        pickingStart={pickingStart}
+        onMapClick={(loc) => {
+          // If we're in "pick a starting point" mode, this click is the start
+          if (pickingStart) {
+            const dest = pickingStart.destination;
+            setPickingStart(null);
+            planRouteWithStart({ lat: loc.lat, lon: loc.lon, label: "Custom start" }, dest);
+            return;
+          }
+          setClickedLocation(loc);
+        }}
         onAddAtClick={(loc) => {
           setCustomModalLocation({ lat: loc.lat, lon: loc.lon, label: null });
           setCustomModalOpen(true);
+          setClickedLocation(null);
+        }}
+        onPlanRouteAtClick={(loc) => {
+          setPendingRouteDest(loc);
           setClickedLocation(null);
         }}
         onDismissClick={() => setClickedLocation(null)}
@@ -386,13 +511,6 @@ export default function App() {
             >
               🌧️ Radar{radarOn && radarAgeMin != null ? ` · ${radarAgeMin}m ago` : ""}
             </button>
-            <button
-              className={`events-toggle ${eventsOn ? "active" : ""}`}
-              onClick={() => setEventsOn(!eventsOn)}
-              title={eventsOn ? "Hide event venues" : "Show major event venues"}
-            >
-              🎟️ Events{eventsOn && visibleEventCenters.length > 0 ? ` · ${visibleEventCenters.length}` : ""}
-            </button>
             <nav className="tabs">
               {TABS.map((t) => (
                 <button key={t} className={`tab ${tab === t ? "active" : ""}`} onClick={() => setTab(t)}>
@@ -402,6 +520,9 @@ export default function App() {
                   )}
                   {t === "Mine" && userVenues.length > 0 && (
                     <span className="tab-badge">{userVenues.length}</span>
+                  )}
+                  {t === "Routes" && savedRoutes.length > 0 && (
+                    <span className="tab-badge">{savedRoutes.length}</span>
                   )}
                 </button>
               ))}
@@ -430,6 +551,52 @@ export default function App() {
       >+ Add Venue</button>
 
       <aside className={`side-panel ${panelOpen ? "open" : ""}`}>
+        {(activeRoute || routeLoading || routeError) && (
+          <section className="panel-section active-route-section">
+            <div className="active-route-card">
+              <div className="active-route-header">
+                <strong>🗺️ Active Route</strong>
+                <button className="link-btn" onClick={() => { setActiveRoute(null); setRouteError(null); }}>
+                  Clear
+                </button>
+              </div>
+              {routeLoading && <p className="muted">Calculating walking route…</p>}
+              {routeError && <p className="error">{routeError}</p>}
+              {activeRoute && (
+                <>
+                  <p className="active-route-stats">
+                    <span className="meta-distance">
+                      {(activeRoute.route.distanceMeters * 0.000621371).toFixed(2)} mi
+                    </span>
+                    <span> · ~{Math.round(activeRoute.route.durationSeconds / 60)} min walk</span>
+                  </p>
+                  <p className="active-route-endpoints">
+                    <strong>From:</strong> {activeRoute.start.label || `${activeRoute.start.lat.toFixed(4)}, ${activeRoute.start.lon.toFixed(4)}`}
+                    <br/>
+                    <strong>To:</strong> {activeRoute.destination.lat.toFixed(4)}, {activeRoute.destination.lon.toFixed(4)}
+                  </p>
+                  {venuesAlongRoute.length > 0 && (
+                    <details className="active-route-venues" open>
+                      <summary>{venuesAlongRoute.length} venue{venuesAlongRoute.length !== 1 ? "s" : ""} along the way</summary>
+                      <ul>
+                        {venuesAlongRoute.map((v) => (
+                          <li key={v.id} onClick={() => flyToVenue(v)}>
+                            <span className="type-emoji">{v.type === "bar" ? "🍺" : v.type === "restaurant" ? "🍽️" : v.type === "cafe" ? "☕" : "📍"}</span>
+                            {v.name}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+                  <button className="btn-primary" onClick={saveActiveRoute}>
+                    💾 Save to Routes
+                  </button>
+                </>
+              )}
+            </div>
+          </section>
+        )}
+
         {tab === "Search" && (
           <section className="panel-section">
             {searchResults.length > 0 && (
@@ -459,7 +626,8 @@ export default function App() {
                   onEditHappyHour={(venue) => setHhModal({ venue })}
                   onEditNotes={(venue) => setNotesModal({ venue })}
                   onSetRating={setRating}
-                  onCardClick={flyToVenue}
+                  onCardClick={(vv) => { setSelectedVenueId(vv.id); flyToVenue(vv); }}
+                  expanded={selectedVenueId === v.id}
                 />
               ))}
             </div>
@@ -500,7 +668,8 @@ export default function App() {
                         onEditHappyHour={(venue) => setHhModal({ venue })}
                         onEditNotes={(venue) => setNotesModal({ venue })}
                         onSetRating={setRating}
-                        onCardClick={flyToVenue}
+                        onCardClick={(vv) => { setSelectedVenueId(vv.id); flyToVenue(vv); }}
+                  expanded={selectedVenueId === v.id}
                       />
                     ))}
                 </div>
@@ -540,10 +709,78 @@ export default function App() {
                         onEditHappyHour={(venue) => setHhModal({ venue })}
                         onEditNotes={(venue) => setNotesModal({ venue })}
                         onSetRating={setRating}
-                        onCardClick={flyToVenue}
+                        onCardClick={(vv) => { setSelectedVenueId(vv.id); flyToVenue(vv); }}
+                  expanded={selectedVenueId === v.id}
                         onDelete={() => deleteUserVenue(v.id)}
                       />
                     ))}
+                </div>
+              </>
+            )}
+          </section>
+        )}
+
+        {tab === "Routes" && (
+          <section className="panel-section">
+            {savedRoutes.length === 0 ? (
+              <div className="empty-state">
+                <p>No saved routes yet.</p>
+                <p className="muted">
+                  Click <strong>🗺️ Plan Route</strong> in the header, hover the map to preview a walking route from home, then click anywhere to lock it in.
+                </p>
+              </div>
+            ) : (
+              <>
+                <p className="result-count">
+                  {savedRoutes.length} saved route{savedRoutes.length !== 1 ? "s" : ""}
+                </p>
+                <div className="venue-list">
+                  {savedRoutesColored.map((r) => {
+                    const miles = (r.distanceMeters * 0.000621371).toFixed(2);
+                    const minutes = Math.round(r.durationSeconds / 60);
+                    const date = new Date(r.savedAt);
+                    const along = savedRouteVenuesMap.get(r.id) || [];
+                    return (
+                      <div key={r.id} className="venue-card">
+                        <div className="card-top">
+                          <div
+                            className="card-title"
+                            onClick={() => setMapTarget({
+                              center: [(r.origin.lat + r.destination.lat) / 2, (r.origin.lon + r.destination.lon) / 2],
+                              zoom: 15,
+                            })}
+                          >
+                            <h3 className="venue-name">
+                              <span className="route-swatch" style={{ background: r._color }}></span>
+                              Route to {r.destination.lat.toFixed(4)}, {r.destination.lon.toFixed(4)}
+                            </h3>
+                            <div className="card-meta">
+                              <span className="meta-distance">{miles} mi · ~{minutes} min walk</span>
+                              <span>Saved {date.toLocaleDateString()} {date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}</span>
+                            </div>
+                          </div>
+                          <button
+                            className="link-btn delete-btn"
+                            onClick={() => deleteSavedRoute(r.id)}
+                            title="Delete this route"
+                          >🗑️</button>
+                        </div>
+                        {along.length > 0 && (
+                          <details className="active-route-venues" open>
+                            <summary>{along.length} venue{along.length !== 1 ? "s" : ""} along the way</summary>
+                            <ul>
+                              {along.map((v) => (
+                                <li key={v.id} onClick={() => flyToVenue(v)}>
+                                  <span className="type-emoji">{v.type === "bar" ? "🍺" : v.type === "pub" ? "🍻" : v.type === "restaurant" ? "🍽️" : v.type === "cafe" ? "☕" : v.type === "nightclub" ? "🎵" : "📍"}</span>
+                                  {v.name}
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
@@ -569,6 +806,56 @@ export default function App() {
         />
       )}
 
+      {pendingRouteDest && (
+        <div className="modal-overlay" onClick={() => setPendingRouteDest(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>🗺️ Plan Walking Route</h3>
+              <button className="modal-close" onClick={() => setPendingRouteDest(null)}>âœ•</button>
+            </div>
+            <p className="apikey-info">
+              Walking route to{" "}
+              <strong>{pendingRouteDest.lat.toFixed(4)}, {pendingRouteDest.lon.toFixed(4)}</strong>.
+              Where do you want to start from?
+            </p>
+            <div className="route-start-options">
+              {homeLocation && (
+                <button
+                  className="route-start-btn route-start-home"
+                  onClick={() => {
+                    planRouteWithStart(homeLocation, pendingRouteDest);
+                    setPendingRouteDest(null);
+                  }}
+                >
+                  <strong>🏠 From your searched location</strong>
+                  <span>{homeLocation.label}</span>
+                </button>
+              )}
+              <button
+                className="route-start-btn"
+                onClick={() => {
+                  setPickingStart({ destination: pendingRouteDest });
+                  setPendingRouteDest(null);
+                }}
+              >
+                <strong>📍 Pick a starting point on the map</strong>
+                <span>Click anywhere to set the start</span>
+              </button>
+            </div>
+            <div className="modal-actions">
+              <button onClick={() => setPendingRouteDest(null)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {pickingStart && (
+        <div className="zoom-hint zoom-hint-large pick-start-hint">
+          📍 Click anywhere to set your starting point
+          <button className="pick-start-cancel" onClick={() => setPickingStart(null)}>Cancel</button>
+        </div>
+      )}
+
       {customModalOpen && (
         <CustomVenueModal
           defaultLocation={customModalLocation || homeLocation}
@@ -578,6 +865,24 @@ export default function App() {
       )}
     </div>
   );
+}
+
+function bboxContains(outer, inner) {
+  return outer.south <= inner.south
+      && outer.north >= inner.north
+      && outer.west  <= inner.west
+      && outer.east  >= inner.east;
+}
+
+function expandBbox(bbox, factor) {
+  const latPad = (bbox.north - bbox.south) * (factor - 1) / 2;
+  const lonPad = (bbox.east  - bbox.west)  * (factor - 1) / 2;
+  return {
+    south: bbox.south - latPad,
+    north: bbox.north + latPad,
+    west:  bbox.west  - lonPad,
+    east:  bbox.east  + lonPad,
+  };
 }
 
 function zoomForRadius(meters) {

@@ -1,5 +1,8 @@
 // Curated list of major event venues. Each entry links to that venue's
 // official schedule/calendar page. Coordinates are approximate.
+//
+// `SPORT_ARENAS` (derived below) flattens these into venue-shaped objects
+// so the existing filter system can treat them as just another category.
 export const EVENT_CENTERS = [
   // ── New York / NJ ───────────────────────────────────
   { id: "msg",          name: "Madison Square Garden",     city: "New York, NY",        type: "Arena",        lat: 40.7505, lon: -73.9934, scheduleUrl: "https://www.msg.com/madison-square-garden/calendar" },
@@ -201,3 +204,19 @@ export const EVENT_CENTERS = [
   { id: "tokyodome",    name: "Tokyo Dome",                city: "Tokyo, Japan",        type: "Stadium",      lat: 35.7056, lon: 139.7521, scheduleUrl: "https://www.tokyo-dome.co.jp/en/dome/" },
   { id: "qudosbank",    name: "Qudos Bank Arena",          city: "Sydney, Australia",   type: "Arena",        lat: -33.8430, lon: 151.0625, scheduleUrl: "https://www.qudosbankarena.com.au/events" },
 ];
+
+// Flatten the sports-y subset (Arenas, Stadiums, Ballparks) into venue-shaped
+// objects so they can plug into the regular type-filter system. The website
+// field carries the schedule URL so the existing 🌐 Site link opens it.
+export const SPORT_ARENAS = EVENT_CENTERS
+  .filter((ec) => ["Arena", "Stadium", "Ballpark"].includes(ec.type))
+  .map((ec) => ({
+    id: `arena_${ec.id}`,
+    name: ec.name,
+    type: "sporting_arena",
+    lat: ec.lat,
+    lon: ec.lon,
+    address: ec.city,
+    website: ec.scheduleUrl,
+  }));
+

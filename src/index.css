@@ -127,6 +127,26 @@ h1 {
   box-shadow: 0 0 0 2px rgba(80,160,232,0.18);
 }
 
+.route-toggle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  color: var(--text2);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.32rem 0.7rem;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.route-toggle:hover:not(.active):not(:disabled) { color: var(--text); }
+.route-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+.route-toggle.active {
+  background: rgba(232,160,32,0.18);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(232,160,32,0.18);
+}
+
 /* ── Tabs ───────────────────────────────────────────── */
 .tabs { display: flex; gap: 0.25rem; }
 
@@ -509,6 +529,22 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   box-shadow: 0 0 0 1px rgba(232,160,32,0.15);
 }
 
+/* Expanded card — when its pin is selected on the map */
+.venue-card.is-expanded {
+  background: rgba(34, 34, 47, 0.96);
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 2px rgba(232,160,32,0.45),
+    0 12px 32px rgba(0,0,0,0.55);
+  padding: 1rem 1.1rem;
+  gap: 0.6rem;
+  transform: scale(1.02);
+  transition: transform 0.18s, box-shadow 0.18s, padding 0.18s;
+}
+.venue-card.is-expanded .venue-name { font-size: 1.08rem; }
+.venue-card.is-expanded .card-meta { font-size: 0.82rem; }
+.venue-card.is-expanded .hh-badge { font-size: 0.8rem; padding: 0.24rem 0.6rem; }
+
 .card-top {
   display: flex;
   justify-content: space-between;
@@ -530,6 +566,13 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 }
 
 .type-emoji { font-size: 0.95rem; flex-shrink: 0; }
+.type-icon-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--accent);
+}
 .custom-tag { color: var(--accent); font-size: 0.75rem; }
 
 .card-meta {
@@ -964,6 +1007,58 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   color: #ffd699;
 }
 
+/* Reload-venues prompt — pill at top center, prominent and clickable */
+.reload-venues-btn {
+  position: absolute;
+  top: 6.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1100;
+  background: var(--accent);
+  border: 2px solid rgba(255,255,255,0.2);
+  border-radius: 99px;
+  color: #000;
+  font-weight: 700;
+  font-size: 0.92rem;
+  padding: 0.7rem 1.25rem;
+  box-shadow: 0 0 0 4px rgba(232,160,32,0.25), 0 8px 22px rgba(0,0,0,0.55);
+  cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+}
+.reload-venues-btn:hover {
+  background: var(--accent2);
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 0 0 0 6px rgba(232,160,32,0.3), 0 12px 28px rgba(0,0,0,0.6);
+}
+
+/* Animated spinner used in the "Searching…" toast */
+.throbber {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255,255,255,0.18);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: throbberSpin 0.7s linear infinite;
+  margin-right: 0.65rem;
+  vertical-align: -4px;
+}
+@keyframes throbberSpin { to { transform: rotate(360deg); } }
+
+/* Color swatch shown next to each saved route name in the Routes tab */
+.route-swatch {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  margin-right: 0.45rem;
+  vertical-align: -1px;
+  border: 1px solid rgba(255,255,255,0.2);
+  flex-shrink: 0;
+}
+
 /* ── Empty State / Error ────────────────────────────── */
 .empty-state {
   text-align: center;
@@ -1039,6 +1134,15 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   line-height: 1;
   filter: drop-shadow(0 1px 1px rgba(0,0,0,0.3));
 }
+/* Lucide SVG icon inside the pin head */
+.pin-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transform: rotate(45deg);
+  filter: drop-shadow(0 1px 1px rgba(0,0,0,0.4));
+}
+.pin-icon svg { display: block; }
 .pin-wrap:hover .pin-head { transform: rotate(-45deg) scale(1.12); }
 
 /* Favorited venues get a glowing amber ring around their pin head */
@@ -1047,6 +1151,17 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   box-shadow: 0 0 0 3px rgba(232,160,32,0.55), 0 0 14px rgba(232,160,32,0.35), 0 3px 8px rgba(0,0,0,0.5);
 }
 .venue-marker.is-fav .pin-emoji { font-size: 16px; }
+
+/* Selected marker — highlighted ring and bigger overall */
+.venue-marker.is-selected .pin-head {
+  border-color: #fff;
+  box-shadow:
+    0 0 0 4px var(--accent),
+    0 0 22px rgba(232,160,32,0.65),
+    0 4px 10px rgba(0,0,0,0.5);
+  transform: rotate(-45deg) scale(1.05);
+  z-index: 1000;
+}
 
 .click-pin {
   width: 18px;
@@ -1071,6 +1186,140 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   font-size: 0.85rem;
   font-weight: 700;
 }
+.click-prompt-route-btn {
+  background: var(--surface2) !important;
+  border: 1px solid var(--accent) !important;
+  color: var(--accent) !important;
+  margin-top: 0.35rem;
+}
+.click-prompt-route-btn:hover { background: rgba(232,160,32,0.12) !important; }
+
+/* ── Venues highlighted as "along the route" ────────── */
+.venue-marker.is-on-route .pin-head {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 4px rgba(232,160,32,0.55),
+    0 0 18px rgba(232,160,32,0.7),
+    0 3px 8px rgba(0,0,0,0.5);
+  animation: routeGlow 2s ease-in-out infinite;
+}
+@keyframes routeGlow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 4px rgba(232,160,32,0.55),
+      0 0 18px rgba(232,160,32,0.7),
+      0 3px 8px rgba(0,0,0,0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(232,160,32,0.7),
+      0 0 26px rgba(232,160,32,0.95),
+      0 3px 8px rgba(0,0,0,0.5);
+  }
+}
+
+/* ── Route start picker ─────────────────────────────── */
+.route-start-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.route-start-btn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  text-align: left;
+  align-items: flex-start;
+  padding: 0.7rem 0.85rem;
+  font-size: 0.85rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  white-space: normal;
+}
+.route-start-btn:hover { border-color: var(--accent); background: rgba(232,160,32,0.08); }
+.route-start-btn span {
+  font-size: 0.74rem;
+  color: var(--text2);
+  font-weight: 400;
+}
+.route-start-home {
+  background: rgba(232,160,32,0.1);
+  border-color: var(--accent);
+}
+
+.zoom-hint.pick-start-hint {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  background: rgba(232,160,32,0.18);
+  border-color: var(--accent);
+  color: var(--accent);
+  pointer-events: auto;
+}
+.pick-start-cancel {
+  background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: var(--text);
+  font-size: 0.78rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 99px;
+  cursor: pointer;
+}
+
+/* ── Active route info card ─────────────────────────── */
+.active-route-section { padding-top: 0; padding-bottom: 0.5rem; }
+.active-route-card {
+  background: rgba(232,160,32,0.12);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(232,160,32,0.45);
+  border-radius: 12px;
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.35);
+}
+.active-route-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+.active-route-header strong { font-size: 0.95rem; }
+.active-route-stats { font-size: 0.85rem; color: var(--text); }
+.active-route-stats .meta-distance { font-weight: 700; font-size: 1rem; }
+.active-route-endpoints { font-size: 0.8rem; color: var(--text2); line-height: 1.4; }
+.active-route-endpoints strong { color: var(--text); font-weight: 600; }
+
+.active-route-venues summary {
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 0.2rem 0;
+}
+.active-route-venues ul {
+  list-style: none;
+  padding: 0.3rem 0 0 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.active-route-venues li {
+  font-size: 0.82rem;
+  color: var(--text);
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+.active-route-venues li:hover { background: rgba(232,160,32,0.12); color: var(--accent); }
 
 .event-pin {
   width: 32px;

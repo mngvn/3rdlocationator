@@ -1,4 +1,6 @@
+import { useEffect, useRef } from "react";
 import { haversineDistance, walkingMinutes } from "../utils/distance";
+import { VenueIconReact } from "./VenueIcon";
 
 const TYPE_EMOJI = {
   bar: "🍺",
@@ -16,6 +18,7 @@ const TYPE_EMOJI = {
   theatre: "🎭",
   arts_centre: "🎨",
   events_venue: "🎪",
+  sporting_arena: "🏟️",
   casino: "🎰",
   liquor_store: "🥃",
   wine_shop: "🍷",
@@ -62,7 +65,14 @@ export default function VenueCard({
   onSetRating,
   onCardClick,
   onDelete,
+  expanded = false,
 }) {
+  const cardRef = useRef(null);
+  useEffect(() => {
+    if (expanded && cardRef.current) {
+      cardRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [expanded]);
   const distance = homeLocation
     ? haversineDistance(homeLocation.lat, homeLocation.lon, venue.lat, venue.lon)
     : null;
@@ -73,11 +83,11 @@ export default function VenueCard({
     : null;
 
   return (
-    <div className={`venue-card ${isFavorite ? "is-favorite" : ""}`}>
+    <div ref={cardRef} className={`venue-card ${isFavorite ? "is-favorite" : ""} ${expanded ? "is-expanded" : ""}`}>
       <div className="card-top">
         <div className="card-title" onClick={() => onCardClick?.(venue)}>
           <h3 className="venue-name">
-            <span className="type-emoji">{TYPE_EMOJI[venue.type] || "📍"}</span>
+            <span className="type-icon-wrap"><VenueIconReact type={venue.type} size={expanded ? 20 : 16} /></span>
             {venue.name}
             {venue.custom && <span className="custom-tag" title="Custom venue">★</span>}
           </h3>

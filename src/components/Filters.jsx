@@ -14,6 +14,7 @@ const TYPE_OPTIONS = [
   { value: "theatre",      label: "Theatres",      emoji: "🎭" },
   { value: "arts_centre",  label: "Arts Centres",  emoji: "🎨" },
   { value: "events_venue", label: "Event Spaces",  emoji: "🎪" },
+  { value: "sporting_arena", label: "Sporting Arenas", emoji: "🏟️" },
   { value: "casino",       label: "Casinos",       emoji: "🎰" },
   { value: "liquor_store", label: "Liquor Stores", emoji: "🥃" },
   { value: "wine_shop",    label: "Wine Shops",    emoji: "🍷" },
