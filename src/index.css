@@ -441,11 +441,15 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   border-radius: 99px;
   color: var(--text2);
   font-size: 0.78rem;
-  padding: 0.28rem 0.65rem;
+  padding: 0.28rem 0.7rem;
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
+.type-pill svg { display: block; flex-shrink: 0; }
 .type-pill:hover:not(.active) { color: var(--text); border-color: var(--text2); background: none; }
 .type-pill.active {
   background: rgba(232,160,32,0.15);

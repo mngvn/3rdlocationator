@@ -1,23 +1,28 @@
+import { VenueIconReact } from "./VenueIcon";
+
+// `value` matches the type used everywhere else (overpass parseVenue, map
+// markers, venue cards). Icons come from the same VENUE_ICON map so the
+// filter pills, the venue-card titles, and the map pins all stay in sync.
 const TYPE_OPTIONS = [
-  { value: "bar",          label: "Bars",          emoji: "🍺" },
-  { value: "pub",          label: "Pubs",          emoji: "🍻" },
-  { value: "biergarten",   label: "Beer Gardens",  emoji: "🍻" },
-  { value: "restaurant",   label: "Restaurants",   emoji: "🍽️" },
-  { value: "fast_food",    label: "Fast Food",     emoji: "🍔" },
-  { value: "food_court",   label: "Food Courts",   emoji: "🍱" },
-  { value: "cafe",         label: "Cafes",         emoji: "☕" },
-  { value: "ice_cream",    label: "Ice Cream",     emoji: "🍦" },
-  { value: "nightclub",    label: "Nightclubs",    emoji: "🎵" },
-  { value: "stripclub",    label: "Adult Clubs",   emoji: "💃" },
-  { value: "music_venue",  label: "Music Venues",  emoji: "🎤" },
-  { value: "cinema",       label: "Cinemas",       emoji: "🎬" },
-  { value: "theatre",      label: "Theatres",      emoji: "🎭" },
-  { value: "arts_centre",  label: "Arts Centres",  emoji: "🎨" },
-  { value: "events_venue", label: "Event Spaces",  emoji: "🎪" },
-  { value: "sporting_arena", label: "Sporting Arenas", emoji: "🏟️" },
-  { value: "casino",       label: "Casinos",       emoji: "🎰" },
-  { value: "liquor_store", label: "Liquor Stores", emoji: "🥃" },
-  { value: "wine_shop",    label: "Wine Shops",    emoji: "🍷" },
+  { value: "bar",            label: "Bars" },
+  { value: "pub",            label: "Pubs" },
+  { value: "biergarten",     label: "Beer Gardens" },
+  { value: "restaurant",     label: "Restaurants" },
+  { value: "fast_food",      label: "Fast Food" },
+  { value: "food_court",     label: "Food Courts" },
+  { value: "cafe",           label: "Cafes" },
+  { value: "ice_cream",      label: "Ice Cream" },
+  { value: "nightclub",      label: "Nightclubs" },
+  { value: "stripclub",      label: "Adult Clubs" },
+  { value: "music_venue",    label: "Music Venues" },
+  { value: "cinema",         label: "Cinemas" },
+  { value: "theatre",        label: "Theatres" },
+  { value: "arts_centre",    label: "Arts Centres" },
+  { value: "events_venue",   label: "Event Spaces" },
+  { value: "sporting_arena", label: "Sporting Arenas" },
+  { value: "casino",         label: "Casinos" },
+  { value: "liquor_store",   label: "Liquor Stores" },
+  { value: "wine_shop",      label: "Wine Shops" },
 ];
 
 function toggleType(types, value) {
@@ -46,7 +51,8 @@ export default function Filters({ filters, onChange, hasHomeLocation, mode = "fa
             className={`type-pill ${types.includes(o.value) ? "active" : ""}`}
             onClick={() => onChange({ ...filters, types: toggleType(types, o.value) })}
           >
-            {o.emoji} {o.label}
+            <VenueIconReact type={o.value} size={14} strokeWidth={2.2} />
+            {o.label}
           </button>
         ))}
       </div>
