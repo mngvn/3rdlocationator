@@ -401,24 +401,41 @@ export default function App() {
   }
 
   // Map shows only what's relevant to the current tab — no permanent pins.
+  // When the user has zoomed past the default search zoom by a couple steps,
+  // unload non-favorite markers that fall outside the visible viewport so
+  // the map stays focused (and renders fast).
   const mapVenues = useMemo(() => {
+    const cullToView = currentZoom >= 15 && currentBounds;
+    const inView = (v) => {
+      if (!cullToView) return true;
+      const { south, west, north, east } = currentBounds;
+      // Tiny pad so markers near the edge don't pop in/out on micro pans
+      const latPad = (north - south) * 0.05;
+      const lonPad = (east - west) * 0.05;
+      return v.lat >= south - latPad && v.lat <= north + latPad
+          && v.lon >= west  - lonPad && v.lon <= east  + lonPad;
+    };
+
     if (tab === "Search") {
       const merged = new Map();
-      filteredSearch.forEach((v) => merged.set(v.id, v));
+      filteredSearch.forEach((v) => {
+        if (inView(v) || favoriteIds.has(v.id)) merged.set(v.id, v);
+      });
+      // Favorites always render even when culled, so they stay locatable
       filteredFavorites.forEach((v) => merged.set(v.id, v));
       return Array.from(merged.values());
     }
     if (tab === "Mine") return userVenues;
     if (tab === "Routes") {
-      // Show currently-loaded OSM venues + user venues so anything near a
-      // saved route appears (and gets the glow highlight).
       const merged = new Map();
-      combinedSearch.forEach((v) => merged.set(v.id, v));
+      combinedSearch.forEach((v) => {
+        if (inView(v) || favoriteIds.has(v.id)) merged.set(v.id, v);
+      });
       userVenues.forEach((v) => merged.set(v.id, v));
       return Array.from(merged.values());
     }
     return filteredFavorites;
-  }, [tab, filteredSearch, filteredFavorites, userVenues, combinedSearch]);
+  }, [tab, filteredSearch, filteredFavorites, userVenues, combinedSearch, currentZoom, currentBounds, favoriteIds]);
 
   const walkingRadius = filters.walkingOnly && homeLocation ? filters.maxMiles : null;
 
