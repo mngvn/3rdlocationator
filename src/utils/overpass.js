@@ -27,19 +27,22 @@ const NODE_FILTERS = [
   "[shop=wine]",
 ];
 
+// `nwr` = node + way + relation, so we don't miss venues mapped as building
+// polygons (e.g. the Gay 90's in Minneapolis is a way, not a node).
+// `out center` returns a representative lat/lon for ways/relations.
 function buildQuery(lat, lon, radiusMeters) {
   const clauses = NODE_FILTERS
-    .map((f) => `      node${f}(around:${radiusMeters},${lat},${lon});`)
+    .map((f) => `      nwr${f}(around:${radiusMeters},${lat},${lon});`)
     .join("\n");
-  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout body;`;
+  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout tags center;`;
 }
 
 function buildBboxQuery(south, west, north, east) {
   const bbox = `${south},${west},${north},${east}`;
   const clauses = NODE_FILTERS
-    .map((f) => `      node${f}(${bbox});`)
+    .map((f) => `      nwr${f}(${bbox});`)
     .join("\n");
-  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout body;`;
+  return `[out:json][timeout:25];\n(\n${clauses}\n);\nout tags center;`;
 }
 
 const SHOP_TYPE_MAP = {
@@ -47,15 +50,22 @@ const SHOP_TYPE_MAP = {
   wine: "wine_shop",
 };
 
-function parseVenue(node) {
-  const t = node.tags || {};
+function parseVenue(el) {
+  const t = el.tags || {};
   const type = t.amenity || (t.shop && SHOP_TYPE_MAP[t.shop]) || null;
+  // Nodes have lat/lon directly; ways/relations have a `center` from `out center`.
+  const lat = el.lat ?? el.center?.lat;
+  const lon = el.lon ?? el.center?.lon;
+  if (lat == null || lon == null) return null;
+  // Keep node IDs as plain numbers (backwards-compat with existing favorites);
+  // prefix way/relation IDs so the namespaces don't collide.
+  const id = el.type === "node" ? String(el.id) : `${el.type}/${el.id}`;
   return {
-    id: String(node.id),
+    id,
     name: t.name || "Unnamed",
     type,
-    lat: node.lat,
-    lon: node.lon,
+    lat,
+    lon,
     address: [t["addr:housenumber"], t["addr:street"]].filter(Boolean).join(" ") || null,
     phone: t.phone || t["contact:phone"] || null,
     website: t.website || t["contact:website"] || null,
@@ -84,6 +94,7 @@ export async function searchVenuesBbox(south, west, north, east) {
       return data.elements
         .filter((el) => el.tags?.name)
         .map(parseVenue)
+        .filter(Boolean)
         .sort((a, b) => a.name.localeCompare(b.name));
     } catch (e) {
       lastError = e;
@@ -101,6 +112,7 @@ export async function searchVenuesNear(lat, lon, radiusMeters = 5000) {
       return data.elements
         .filter((el) => el.tags?.name)
         .map(parseVenue)
+        .filter(Boolean)
         .sort((a, b) => a.name.localeCompare(b.name));
     } catch (e) {
       lastError = e;
