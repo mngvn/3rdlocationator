@@ -851,7 +851,7 @@ export default function App() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3>🗺️ Plan Walking Route</h3>
-              <button className="modal-close" onClick={() => setPendingRouteDest(null)}>âœ•</button>
+              <button className="modal-close" onClick={() => setPendingRouteDest(null)}>✕</button>
             </div>
             <p className="apikey-info">
               Walking route to{" "}
