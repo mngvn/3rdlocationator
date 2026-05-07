@@ -6,6 +6,7 @@ import { haversineDistance } from "./utils/distance";
 import { parseOsmHappyHours } from "./utils/parseHappyHours";
 import { fetchWeather, fetchRadarFrames, radarTileUrl } from "./utils/weather";
 import { fetchWalkingRoute } from "./utils/routing";
+import { fetchUpcomingEvents } from "./utils/events";
 import LocationSearch from "./components/LocationSearch";
 import VenueCard from "./components/VenueCard";
 import Filters from "./components/Filters";
@@ -13,6 +14,7 @@ import HappyHourModal from "./components/HappyHourModal";
 import CustomVenueModal from "./components/CustomVenueModal";
 import NotesModal from "./components/NotesModal";
 import WeatherWidget from "./components/WeatherWidget";
+import EventBanner from "./components/EventBanner";
 import MapView from "./components/MapView";
 
 const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 0.4 };
@@ -42,6 +44,11 @@ export default function App() {
   const [weather, setWeather] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
   const [weatherError, setWeatherError] = useState(null);
+
+  // Upcoming events near home (rotating banner)
+  const [upcomingEvents, setUpcomingEvents] = useState([]);
+  const [eventsLoading, setEventsLoading] = useState(false);
+  const [eventsBannerOpen, setEventsBannerOpen] = useState(true);
 
   // Radar
   const [radarOn, setRadarOn] = useLocalStorage("bh_radar_on", false);
@@ -161,6 +168,23 @@ export default function App() {
     // the "Re-Load venues" button so they choose when to spend the request.
     setReloadAvailable(true);
   }
+
+  // Refetch upcoming events whenever the user picks a new home location.
+  // Pulled from Bandsintown's keyless public endpoint for popular touring acts.
+  useEffect(() => {
+    if (!homeLocation) {
+      setUpcomingEvents([]);
+      return;
+    }
+    let cancelled = false;
+    setEventsLoading(true);
+    setEventsBannerOpen(true);
+    fetchUpcomingEvents(homeLocation, 200, 25)
+      .then((evs) => { if (!cancelled) setUpcomingEvents(evs); })
+      .catch(() => { if (!cancelled) setUpcomingEvents([]); })
+      .finally(() => { if (!cancelled) setEventsLoading(false); });
+    return () => { cancelled = true; };
+  }, [homeLocation?.lat, homeLocation?.lon]);
 
   // Refetch weather whenever the user picks a new home location
   useEffect(() => {
@@ -498,7 +522,14 @@ export default function App() {
   );
 
   return (
-    <div className="app map-mode">
+    <div className={`app map-mode ${eventsBannerOpen && (upcomingEvents.length || eventsLoading) ? "with-banner" : ""}`}>
+      {eventsBannerOpen && (upcomingEvents.length > 0 || eventsLoading) && (
+        <EventBanner
+          events={upcomingEvents}
+          loading={eventsLoading}
+          onClose={() => setEventsBannerOpen(false)}
+        />
+      )}
       {currentZoom < 12 && !searchLoading && !radarOn && (
         <div className="zoom-hint zoom-hint-large">🔍 Zoom in to load venues</div>
       )}

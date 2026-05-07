@@ -55,6 +55,99 @@ body {
 }
 .leaflet-control-attribution a { color: var(--accent) !important; }
 
+/* ── Upcoming Events Banner (rotates near searched location) ── */
+.event-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1080;
+  background: rgba(15, 15, 19, 0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid rgba(232, 160, 32, 0.45);
+  padding: 0.55rem 3rem 0.55rem 1.1rem;
+  font-size: 0.86rem;
+  color: var(--text);
+  pointer-events: auto;
+  text-align: center;
+  height: 2.6rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.event-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.7rem;
+  flex-wrap: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+  max-width: 100%;
+  animation: bannerFadeIn 0.45s ease;
+}
+@keyframes bannerFadeIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.event-banner-emoji { font-size: 1.05rem; }
+.event-banner strong { color: var(--accent); font-weight: 700; }
+.event-banner-venue { color: var(--text2); }
+.event-banner-date  { color: #ffd699; font-weight: 600; }
+.event-banner-sep   { color: var(--text2); margin: 0 0.15rem; }
+.event-banner-text  { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-banner-link {
+  color: var(--accent);
+  text-decoration: none;
+  border: 1px solid var(--accent);
+  border-radius: 99px;
+  padding: 0.18rem 0.65rem;
+  font-size: 0.76rem;
+  font-weight: 700;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.event-banner-link:hover { background: rgba(232, 160, 32, 0.15); }
+.event-banner-position {
+  color: var(--text2);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+.event-banner-close {
+  position: absolute;
+  top: 50%;
+  right: 0.7rem;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #fff;
+  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+.event-banner-close:hover { background: rgba(0, 0, 0, 0.7); border-color: var(--accent); color: var(--accent); }
+
+/* When the banner is showing, push the floating header & side panel down
+   so they don't overlap with it. */
+.app.with-banner .floating-header { top: 3.4rem; }
+.app.with-banner .side-panel { padding-top: 8.5rem; }
+.app.with-banner .weather-widget { top: 3.4rem; }
+
+@media (max-width: 600px) {
+  .event-banner { padding: 0.4rem 2.5rem 0.4rem 0.6rem; font-size: 0.78rem; }
+  .event-banner-position { display: none; }
+  .app.with-banner .side-panel { padding-top: 11rem; }
+}
+
 /* ── Floating Header ────────────────────────────────── */
 .floating-header {
   position: absolute;
