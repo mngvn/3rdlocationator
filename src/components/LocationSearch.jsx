@@ -1,13 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 
-const RADIUS_OPTIONS = [
-  { meters: 1500, label: "1 mi" },
-  { meters: 3000, label: "2 mi" },
-  { meters: 5000, label: "3 mi" },
-  { meters: 8000, label: "5 mi" },
-];
-
 const RECENT_LIMIT = 6;
 const DEBOUNCE_MS = 200;
 const RESULT_LIMIT = 8;
@@ -41,7 +34,6 @@ function HighlightedLabel({ text, q }) {
 
 export default function LocationSearch({ onSearch, loading, currentLabel }) {
   const [input, setInput] = useState("");
-  const [radius, setRadius] = useState(5000);
   const [suggestions, setSuggestions] = useState([]);
   const [activeIdx, setActiveIdx] = useState(-1);
   const [open, setOpen] = useState(false);
@@ -146,7 +138,7 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
       const filtered = (prev || []).filter((r) => r.place_id !== s.place_id);
       return [s, ...filtered].slice(0, RECENT_LIMIT);
     });
-    onSearch(s.display_name, radius);
+    onSearch(s.display_name);
   }
 
   function clearRecents(e) {
@@ -194,7 +186,7 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
     if (!q) return;
     typedRef.current = q;
     setOpen(false);
-    onSearch(q, radius);
+    onSearch(q);
   }
 
   return (
@@ -242,11 +234,6 @@ export default function LocationSearch({ onSearch, loading, currentLabel }) {
             </ul>
           )}
         </div>
-        <select value={radius} onChange={(e) => setRadius(Number(e.target.value))} disabled={loading}>
-          {RADIUS_OPTIONS.map((o) => (
-            <option key={o.meters} value={o.meters}>{o.label}</option>
-          ))}
-        </select>
         <button type="submit" disabled={loading || !input.trim()} className="btn-primary">
           {loading ? "..." : "Go"}
         </button>

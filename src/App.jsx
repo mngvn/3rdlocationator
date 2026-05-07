@@ -17,6 +17,7 @@ import MapView from "./components/MapView";
 
 const DEFAULT_FILTERS = { search: "", types: [], happyHourOnly: false, walkingOnly: false, maxMiles: 0.4 };
 const TABS = ["Search", "Favorites", "Mine", "Routes"];
+const DEFAULT_SEARCH_ZOOM = 14; // city-neighborhood view
 
 export default function App() {
   const [tab, setTab] = useState("Search");
@@ -68,7 +69,7 @@ export default function App() {
   const [reloadAvailable, setReloadAvailable] = useState(false);
   const lastBoundsRef = useRef(null);
 
-  async function handleSearch(query, radiusMeters) {
+  async function handleSearch(query) {
     setSearchLoading(true);
     setSearchError(null);
     try {
@@ -77,7 +78,7 @@ export default function App() {
       venuesCacheRef.current = null;
       setReloadAvailable(false);
       setHomeLocation({ label: geo.label, lat: geo.lat, lon: geo.lon });
-      setMapTarget({ center: [geo.lat, geo.lon], zoom: zoomForRadius(radiusMeters) });
+      setMapTarget({ center: [geo.lat, geo.lon], zoom: DEFAULT_SEARCH_ZOOM });
       // Venue loading is driven by the map's moveend event after flyTo
     } catch (e) {
       setSearchError(e.message === "Address not found"
@@ -885,9 +886,3 @@ function expandBbox(bbox, factor) {
   };
 }
 
-function zoomForRadius(meters) {
-  if (meters <= 1500) return 15;
-  if (meters <= 3000) return 14;
-  if (meters <= 5000) return 13;
-  return 12;
-}
